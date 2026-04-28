@@ -1,0 +1,130 @@
+// Prisma Schema for Nexus Social Network
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Model
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique @db.VarChar(255)
+  username    String   @unique @db.VarChar(50)
+  name        String   @db.VarChar(100)
+  displayName String?  @db.VarChar(100)
+  password    String
+  bio         String?   @db.VarChar(500)
+  location    String?   @db.VarChar(100)
+  website     String?   @db.VarChar(255)
+  avatarUrl   String?
+  bannerUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  posts        Post[]
+  likes        Like[]
+  reposts      Repost[]
+  followers    Follow[] @relation("Following")
+  following    Follow[] @relation("Follower")
+  comments     Comment[]
+
+  @@map("Users")
+}
+
+// Post Model
+model Post {
+  id            String    @id @default(cuid())
+  content       String
+  mediaUrls     String[]  // Array of image URLs (stored as JSON)
+  likesCount    Int       @default(0)
+  repostsCount  Int       @default(0)
+  commentsCount Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  isPinned      Boolean   @default(false)
+  deletedAt     DateTime? // Soft delete — null = active, set = deleted
+
+  // Relations
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId  String?  // For threads/replies
+  parent    Post?    @relation("ThreadPosts", fields: [parentId], references: [id])
+  replies   Post[]   @relation("ThreadPosts")
+  likes     Like[]
+  reposts   Repost[]
+  comments  Comment[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([parentId])
+  @@index([deletedAt])
+  @@map("Post")
+}
+
+// Follow Model
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower   User @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following  User @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("Follow")
+}
+
+// Like Model
+model Like {
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@index([userId])
+  @@index([postId])
+  @@map("Like")
+}
+
+// Repost Model
+model Repost {
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@index([userId])
+  @@index([postId])
+  @@map("Repost")
+}
+
+// Comment Model
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  postId String
+  user   User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post   Post  @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([postId])
+  @@map("comments")
+}

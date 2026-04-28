@@ -1,0 +1,259 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import MainLayout from '@/components/layout/MainLayout'
+import PostComposer from '@/components/posts/PostComposer'
+import PostCard from '@/components/posts/PostCard'
+import { postApi, authApi } from '@/lib/api'
+
+interface ApiPost {
+  id: string
+  content: string
+  mediaUrls: string[]
+  likesCount: number
+  repostsCount: number
+  commentsCount: number
+  createdAt: string
+  isLiked?: boolean
+  isReposted?: boolean
+  isPinned?: boolean
+  user: {
+    id: string
+    username: string
+    displayName: string
+    avatarUrl: string | null
+  }
+}
+
+function timeAgo(date: string): string {
+  const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h`
+  const days = Math.floor(hours / 24)
+  return `${days}d`
+}
+
+export default function FollowingPage() {
+  const router = useRouter()
+  const [posts, setPosts] = useState<ApiPost[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [currentUsername, setCurrentUsername] = useState<string>('')
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!token) {
+      router.push('/login')
+      return
+    }
+    fetchFollowingFeed()
+    authApi.me().then(r => setCurrentUsername(r.data.username)).catch(() => {})
+  }, [])
+
+  const fetchFollowingFeed = async () => {
+    try {
+      const res = await postApi.getFollowingFeed()
+      const feedPosts = Array.isArray(res.data) ? res.data : (res.data?.posts || [])
+      setPosts(feedPosts)
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        localStorage.removeItem('token')
+        router.push('/login')
+      } else {
+        setError('ไม่มีโพสต์ที่จะแสดง')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePostCreated = () => {
+    fetchFollowingFeed()
+  }
+
+  const handleLike = async (postId: string, optimisticLiked: boolean) => {
+    const previousPosts = posts
+
+    // Optimistic update
+    setPosts((current) =>
+      current.map((p) =>
+        p.id === postId
+          ? {
+              ...p,
+              isLiked: optimisticLiked,
+              likesCount: optimisticLiked
+                ? p.likesCount + 1
+                : Math.max(0, p.likesCount - 1),
+            }
+          : p
+      )
+    )
+
+    try {
+      const res = await postApi.toggleLike(postId)
+      // Sync with server truth
+      setPosts((current) =>
+        current.map((p) =>
+          p.id === postId
+            ? { ...p, isLiked: res.data.isLiked, likesCount: res.data.likesCount }
+            : p
+        )
+      )
+    } catch {
+      setPosts(previousPosts)
+    }
+  }
+
+  // ── Repost ─────────────────────────────────────────────────────────────
+  const handleRepost = async (postId: string) => {
+    const previousPosts = [...posts]
+    const post = posts.find((p) => p.id === postId)
+    if (!post) return
+    const optimisticReposted = !post.isReposted
+
+    setPosts((current) =>
+      current.map((p) =>
+        p.id === postId
+          ? {
+              ...p,
+              isReposted: optimisticReposted,
+              repostsCount: optimisticReposted
+                ? p.repostsCount + 1
+                : Math.max(0, p.repostsCount - 1),
+            }
+          : p
+      )
+    )
+
+    try {
+      let res: any
+      if (post.isReposted) {
+        res = await postApi.unrepost(postId)
+      } else {
+        res = await postApi.repost(postId)
+      }
+      setPosts((current) =>
+        current.map((p) =>
+          p.id === postId
+            ? { ...p, isReposted: res.data.isReposted, repostsCount: res.data.repostCount }
+            : p
+        )
+      )
+    } catch {
+      setPosts(previousPosts)
+    }
+  }
+
+  // ── Delete ─────────────────────────────────────────────────────────────
+  const handleDelete = async (postId: string) => {
+    setPosts((current) => current.filter((p) => p.id !== postId))
+    try {
+      await postApi.deletePost(postId)
+    } catch {
+      fetchFollowingFeed()
+    }
+  }
+
+  // ── Pin / Unpin ───────────────────────────────────────────────────────
+  const handlePin = async (postId: string) => {
+    setPosts((current) =>
+      current.map((p) => (p.id === postId ? { ...p, isPinned: true } : { ...p, isPinned: false }))
+    )
+    try {
+      await postApi.pinPost(postId)
+    } catch {
+      fetchFollowingFeed()
+    }
+  }
+
+  const handleUnpin = async (postId: string) => {
+    setPosts((current) =>
+      current.map((p) => (p.id === postId ? { ...p, isPinned: false } : p))
+    )
+    try {
+      await postApi.unpinPost(postId)
+    } catch {
+      fetchFollowingFeed()
+    }
+  }
+
+  const mapPost = (post: ApiPost) => ({
+    id: post.id,
+    user: {
+      name: post.user.displayName || post.user.username,
+      username: post.user.username,
+      avatar: post.user.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${post.user.username}`,
+    },
+    content: post.content,
+    images: post.mediaUrls?.length ? post.mediaUrls : undefined,
+    liked: post.isLiked ?? false,
+    reposted: post.isReposted ?? false,
+    isPinned: post.isPinned ?? false,
+    time: timeAgo(post.createdAt),
+    stats: {
+      comments: post.commentsCount,
+      reposts: post.repostsCount,
+      likes: post.likesCount,
+      views: `${post.likesCount * 10}+`,
+    },
+  })
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-64">
+          <span className="text-text-muted">กำลังโหลด...</span>
+        </div>
+      </MainLayout>
+    )
+  }
+
+  if (error) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-64">
+          <span className="text-red-500">{error}</span>
+        </div>
+      </MainLayout>
+    )
+  }
+
+  return (
+    <MainLayout>
+      {/* Page header */}
+      <div className="sticky top-16 z-40 bg-black/80 backdrop-blur-md px-4 h-14 flex items-center gap-8 border-b border-border">
+        <h1 className="font-bold text-xl text-text-primary">Following</h1>
+      </div>
+
+      {/* Post Composer */}
+      <PostComposer onPostCreated={handlePostCreated} />
+
+      {/* Feed Posts */}
+      <div className="divide-y divide-border">
+        {posts.length === 0 ? (
+          <div className="p-8 text-center text-text-muted">
+            ไม่มีโพสต์เลย — ลอง follow คนอื่นดูสิ!
+          </div>
+        ) : (
+          posts.map((post) => (
+            <PostCard
+              key={post.id}
+              post={mapPost(post)}
+              rawPost={post}
+              onLike={handleLike}
+              onRepost={handleRepost}
+              onDelete={handleDelete}
+              onPin={handlePin}
+              onUnpin={handleUnpin}
+              currentUsername={currentUsername}
+            />
+          ))
+        )}
+      </div>
+    </MainLayout>
+  )
+}

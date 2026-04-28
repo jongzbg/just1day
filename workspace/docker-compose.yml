@@ -1,0 +1,59 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: nexus_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexus_dev
+      POSTGRES_DB: nexus
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nexus_network
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: nexus_server
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      DATABASE_URL: postgresql://nexus:nexus_dev@db:5432/nexus
+      JWT_SECRET: nexus-dev-secret-change-in-prod
+      CLIENT_URL: http://localhost:3000
+      PORT: 3001
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - nexus_network
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: nexus_client
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      NEXT_PUBLIC_API_URL: http://host.docker.internal:3001
+    networks:
+      - nexus_network
+
+volumes:
+  postgres_data:
+
+networks:
+  nexus_network:
+    name: nexus_network
