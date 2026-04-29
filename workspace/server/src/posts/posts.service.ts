@@ -5,9 +5,9 @@ import { PrismaService } from '../prisma/prisma.service';
 export class PostsService {
   constructor(private prisma: PrismaService) {}
 
-  async createPost(userId: string, content: string, mediaUrls: string[] = []) {
+  async createPost(userId: string, username: string, content: string, mediaUrls: string[] = []) {
     return this.prisma.post.create({
-      data: { userId, content, mediaUrls },
+      data: { userId, username, content, mediaUrls },
       include: {
         user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
         _count: { select: { likes: true, replies: true } },
@@ -88,12 +88,12 @@ export class PostsService {
     return { isReposted: false, success: true, repostsCount: post?._count.reposts ?? 0 };
   }
 
-  async quotePost(userId: string, postId: string, content: string) {
+  async quotePost(userId: string, username: string, postId: string, content: string) {
     const quoted = await this.prisma.post.findUnique({ where: { id: postId } });
     if (!quoted || quoted.deletedAt) throw new NotFoundException('Post not found');
 
     return this.prisma.post.create({
-      data: { userId, content, parentId: postId },
+      data: { userId, username, content, parentId: postId },
       include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
     });
   }
@@ -108,9 +108,10 @@ export class PostsService {
 
   async getFeed(userId: string, cursor?: string) {
     const take = 20;
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const where = cursor
       ? { createdAt: { lt: new Date(cursor) }, deletedAt: null, parentId: null }
-      : { deletedAt: null, parentId: null };
+      : { createdAt: { gte: yesterday }, deletedAt: null, parentId: null };
 
     const posts = await this.prisma.post.findMany({
       where,
@@ -169,9 +170,10 @@ export class PostsService {
     const followingIds = following.map(f => f.followingId);
 
     const take = 20;
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const where = cursor
       ? { userId: { in: followingIds }, createdAt: { lt: new Date(cursor) }, deletedAt: null, parentId: null }
-      : { userId: { in: followingIds }, deletedAt: null, parentId: null };
+      : { userId: { in: followingIds }, createdAt: { gte: yesterday }, deletedAt: null, parentId: null };
 
     const posts = await this.prisma.post.findMany({
       where,
@@ -461,12 +463,12 @@ export class PostsService {
     return { comments, nextCursor };
   }
 
-  async createComment(userId: string, postId: string, content: string) {
+  async createComment(userId: string, username: string, postId: string, content: string) {
     const post = await this.prisma.post.findUnique({ where: { id: postId } });
     if (!post || post.deletedAt) throw new NotFoundException('Post not found');
 
     return this.prisma.post.create({
-      data: { userId, content, parentId: postId },
+      data: { userId, username, content, parentId: postId },
       include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
     });
   }
@@ -514,12 +516,12 @@ export class PostsService {
     };
   }
 
-  async createReply(userId: string, postId: string, content: string) {
+  async createReply(userId: string, username: string, postId: string, content: string) {
     const post = await this.prisma.post.findUnique({ where: { id: postId } });
     if (!post || post.deletedAt) throw new NotFoundException('Post not found');
 
     return this.prisma.post.create({
-      data: { userId, content, parentId: postId },
+      data: { userId, username, content, parentId: postId },
       include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
     });
   }

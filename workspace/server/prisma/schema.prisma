@@ -52,6 +52,7 @@ model Post {
 
   // Relations
   userId    String
+  username  String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   parentId  String?  // For threads/replies
   parent    Post?    @relation("ThreadPosts", fields: [parentId], references: [id])

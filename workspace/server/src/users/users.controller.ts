@@ -13,6 +13,18 @@ export class UsersController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('top/creators')
+  async getTopCreators(@Request() req) {
+    return this.usersService.getTopCreators(10, req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('most-likes')
+  async getMostLiked(@Request() req) {
+    return this.usersService.getMostLiked(10, req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get(':username')
   async getProfile(@Param('username') username: string, @Request() req) {
     return this.usersService.getProfile(username, req.user.id);
@@ -34,10 +46,5 @@ export class UsersController {
   @Delete(':id/follow')
   async unfollow(@Param('id') id: string, @Request() req) {
     return this.usersService.unfollow(req.user.id, id);
-  }
-
-  @Get('top/creators')
-  async getTopCreators() {
-    return this.usersService.getTopCreators(10);
   }
 }

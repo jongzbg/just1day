@@ -36,6 +36,7 @@ export const userApi = {
   follow: (userId: string) => api.post(`/users/${userId}/follow`),
   unfollow: (userId: string) => api.delete(`/users/${userId}/follow`),
   getTopCreators: () => api.get('/users/top/creators'),
+  getMostLiked: () => api.get('/users/most-likes'),
 }
 
 export { API_BASE_URL }

@@ -33,7 +33,7 @@ export class PostsController {
   @UseGuards(JwtAuthGuard)
   @Post()
   async createPost(@Request() req, @Body() dto: CreatePostDto) {
-    return this.postsService.createPost(req.user.id, dto.content, dto.mediaUrls || []);
+    return this.postsService.createPost(req.user.id, req.user.username, dto.content, dto.mediaUrls || []);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -79,7 +79,7 @@ export class PostsController {
   @UseGuards(JwtAuthGuard)
   @Post(':id/quote')
   async quotePost(@Param('id') id: string, @Request() req, @Body() body: { content: string }) {
-    return this.postsService.quotePost(req.user.id, id, body.content);
+    return this.postsService.quotePost(req.user.id, req.user.username, id, body.content);
   }
 
   // ── User Likes (posts they liked, shown in profile Likes tab) ──────────
@@ -109,7 +109,7 @@ export class PostsController {
   @UseGuards(JwtAuthGuard)
   @Post(':id/comment')
   async createComment(@Param('id') id: string, @Request() req, @Body() body: { content: string }) {
-    return this.postsService.createComment(req.user.id, id, body.content);
+    return this.postsService.createComment(req.user.id, req.user.username, id, body.content);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -129,7 +129,7 @@ export class PostsController {
   @UseGuards(JwtAuthGuard)
   @Post(':id/reply')
   async createReply(@Param('id') id: string, @Request() req, @Body() body: { content: string }) {
-    return this.postsService.createReply(req.user.id, id, body.content);
+    return this.postsService.createReply(req.user.id, req.user.username, id, body.content);
   }
 
   // ── Public Single Post GET ─────────────────────────────────────────

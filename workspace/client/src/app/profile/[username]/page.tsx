@@ -47,7 +47,6 @@ interface PostData {
     displayName: string | null
     avatarUrl: string | null
   }
-  // For quote posts
   parentPost?: {
     id: string
     content: string
@@ -72,80 +71,45 @@ export default function ProfilePage() {
   const username = typeof routeParams.username === 'string' ? routeParams.username : ''
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [posts, setPosts] = useState<PostData[]>([])
+  const [likes, setLikes] = useState<PostData[]>([])
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-  const [currentUsername, setCurrentUsername] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [activeTab, setActiveTab] = useState<Tab>(() => {
-    if (typeof window !== 'undefined') {
-      return (sessionStorage.getItem('profileTab') as Tab) || 'posts'
-    }
-    return 'posts'
-  })
-  const activeTabRef = useRef(activeTab)
+  const [activeTab, setActiveTab] = useState<Tab>('posts')
   const [quotePost, setQuotePost] = useState<PostData | null>(null)
 
-  // Switch tab — fetch data accordingly
-  const switchTab = async (tab: Tab) => {
-    setActiveTab(tab)
-    activeTabRef.current = tab
-    sessionStorage.setItem('profileTab', tab)
-    const token = localStorage.getItem('token')
-    if (!token || !profile) return
-
-    // Use currentUsername from auth state — always set before user sees page
-    const username = currentUsername || profile.username
-
-    try {
-      if (tab === 'posts') {
-        const res = await postApi.getUserPosts(username)
-        setPosts(res.data.posts || [])
-      } else if (tab === 'likes') {
-        const res = await postApi.getUserLikedPosts(username)
-        setPosts(res.data.posts || [])
-      }
-    } catch {}
-  }
-
-  // Fetch user + profile + posts on mount (resets to current active tab)
+  // ── Load profile on mount ────────────────────────────────────────────────
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (!token) {
       router.push('/login')
       return
     }
-    fetchCurrentUser(token)
-  }, [username])
 
-  const fetchCurrentUser = (token: string) => {
-    fetch('http://localhost:3001/auth/me', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((me) => {
-        setCurrentUserId(me.id)
-        setCurrentUsername(me.username)
-        return userApi.getProfile(username)
-      })
+    userApi.getProfile(username)
       .then((res) => {
         setProfile(res.data)
-        // Fetch data based on current active tab
-        if (activeTabRef.current === 'likes') {
-          return postApi.getUserLikedPosts(username)
-        }
         return postApi.getUserPosts(username)
       })
       .then((res) => setPosts(res.data.posts || []))
       .catch((err) => {
-        if (err.response?.status === 404) {
-          setError('User not found')
-        } else {
-          setError('Failed to load profile')
-        }
+        if (err.response?.status === 404) setError('User not found')
+        else setError('Failed to load profile')
       })
       .finally(() => setLoading(false))
+  }, [username])
+
+  // ── Tab switch ────────────────────────────────────────────────────────────
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab)
+    if (tab === 'posts' && posts.length === 0) {
+      postApi.getUserPosts(username).then((res) => setPosts(res.data.posts || []))
+    } else if (tab === 'likes' && likes.length === 0) {
+      postApi.getUserLikedPosts(username).then((res) => setLikes(res.data.posts || []))
+    }
   }
 
+  // ── Follow ────────────────────────────────────────────────────────────────
   const handleFollow = async () => {
     if (!profile) return
     const token = localStorage.getItem('token')
@@ -159,78 +123,70 @@ export default function ProfilePage() {
         await userApi.follow(profile.id)
         setProfile({ ...profile, isFollowing: true, followersCount: profile.followersCount + 1 })
       }
-    } catch (err: any) {
-      if (err.response?.status === 401) {
-        localStorage.removeItem('token')
-        router.push('/login')
-      }
-    }
+    } catch {}
   }
 
-  // ── Like ──────────────────────────────────────────────────────────────
+  // ── Like ──────────────────────────────────────────────────────────────────
   const handleLike = async (postId: string, optimisticLiked: boolean) => {
-    const previousPosts = [...posts]
-    setPosts((current) =>
-      current.map((p) =>
+    // Optimistic update on current tab
+    const update = (list: PostData[]) =>
+      list.map((p) =>
         p.id === postId
           ? { ...p, isLiked: optimisticLiked, likesCount: optimisticLiked ? p.likesCount + 1 : Math.max(0, p.likesCount - 1) }
           : p
-      ).filter((p) => !(p.id === postId && p.isLiked === false && activeTab === 'likes'))
-    )
+      )
+
+    if (activeTab === 'posts') {
+      setPosts((prev) => update(prev).filter((p) => !(p.id === postId && p.isLiked === false)))
+    } else {
+      setLikes((prev) => update(prev).filter((p) => !(p.id === postId && p.isLiked === false)))
+    }
+
     try {
       const res = await postApi.toggleLike(postId)
-      setPosts((current) =>
-        current.map((p) => p.id === postId ? { ...p, isLiked: res.data.isLiked, likesCount: res.data.likesCount } : p)
-      )
-    } catch {
-      setPosts(previousPosts)
-    }
+      const sync = (list: PostData[]) =>
+        list.map((p) => p.id === postId ? { ...p, isLiked: res.data.isLiked, likesCount: res.data.likesCount } : p)
+      if (activeTab === 'posts') setPosts((prev) => sync(prev))
+      else setLikes((prev) => sync(prev))
+
+      // Refresh likes tab
+      setLikes([])
+      window.dispatchEvent(new CustomEvent('nexus:like-changed'))
+    } catch {}
   }
 
-  // ── Repost ─────────────────────────────────────────────────────────────
+  // ── Repost ────────────────────────────────────────────────────────────────
   const handleRepost = async (postId: string) => {
-    const previousPosts = [...posts]
-    const post = posts.find((p) => p.id === postId)
+    const list = activeTab === 'posts' ? posts : likes
+    const post = list.find((p) => p.id === postId)
     if (!post) return
 
     const optimisticReposted = !post.isReposted
-
-    setPosts((current) =>
-      current.map((p) =>
+    const update = (arr: PostData[]) =>
+      arr.map((p) =>
         p.id === postId
-          ? {
-              ...p,
-              isReposted: optimisticReposted,
-              repostsCount: optimisticReposted
-                ? p.repostsCount + 1
-                : Math.max(0, p.repostsCount - 1),
-            }
+          ? { ...p, isReposted: optimisticReposted, repostsCount: optimisticReposted ? p.repostsCount + 1 : Math.max(0, p.repostsCount - 1) }
           : p
       )
-    )
+
+    if (activeTab === 'posts') setPosts(update(posts))
+    else setLikes(update(likes))
 
     try {
-      let res: any
-      if (post.isReposted) {
-        res = await postApi.unrepost(postId)
-      } else {
-        res = await postApi.repost(postId)
-      }
-      setPosts((current) =>
-        current.map((p) =>
-          p.id === postId
-            ? { ...p, isReposted: res.data.isReposted, repostsCount: res.data.repostsCount }
-            : p
-        )
-      )
-    } catch {
-      setPosts(previousPosts)
-    }
+      const res = post.isReposted
+        ? await postApi.unrepost(postId)
+        : await postApi.repost(postId)
+      const sync = (arr: PostData[]) =>
+        arr.map((p) => p.id === postId ? { ...p, isReposted: res.data.isReposted, repostsCount: res.data.repostsCount } : p)
+      if (activeTab === 'posts') setPosts(sync(posts))
+      else setLikes(sync(likes))
+    } catch {}
   }
 
-  // ── Quote ──────────────────────────────────────────────────────────────
+  // ── Quote ──────────────────────────────────────────────────────────────────
   const handleQuote = (postId: string) => {
-    const post = posts.find((p) => p.id === postId)
+    const list = activeTab === 'posts' ? posts : likes
+    const post = list.find((p) => p.id === postId)
     if (post) setQuotePost(post)
   }
 
@@ -248,67 +204,56 @@ export default function ProfilePage() {
       isLiked: false,
       isReposted: false,
       isPinned: false,
-      user: {
-        id: currentUserId ?? '',
-        username: currentUsername ?? '',
-        displayName: currentUsername ?? '',
-        avatarUrl: null,
-      },
+      user: { id: currentUserId ?? '', username: username, displayName: username, avatarUrl: null },
       parentPost: {
         id: quotePost.id,
         content: quotePost.content,
-        user: {
-          username: quotePost.user.username,
-          displayName: quotePost.user.displayName ?? quotePost.user.username,
-          avatarUrl: quotePost.user.avatarUrl,
-        },
+        user: { username: quotePost.user.username, displayName: quotePost.user.displayName ?? quotePost.user.username, avatarUrl: quotePost.user.avatarUrl },
       },
     }
     setPosts((current) => [quoteData, ...current])
     setQuotePost(null)
     try {
       const res = await postApi.quotePost(quotePost.id, content)
-      setPosts((current) =>
-        current.map((p) => (p.id === tempId ? { ...res.data, id: res.data.id } : p))
-      )
+      setPosts((current) => current.map((p) => (p.id === tempId ? { ...res.data, id: res.data.id } : p)))
     } catch {
       setPosts((current) => current.filter((p) => p.id !== tempId))
     }
   }
 
-  // ── Delete ─────────────────────────────────────────────────────────────
+  // ── Delete ────────────────────────────────────────────────────────────────
   const handleDelete = async (postId: string) => {
     setPosts((current) => current.filter((p) => p.id !== postId))
     if (profile) setProfile({ ...profile, postsCount: Math.max(0, profile.postsCount - 1) })
     try {
       await postApi.deletePost(postId)
-    } catch {
-      if (profile) postApi.getUserPosts(profile.username).then((res) => setPosts(res.data.posts || []))
-    }
+    } catch {}
   }
 
-  // ── Pin ────────────────────────────────────────────────────────────────
+  // ── Pin ───────────────────────────────────────────────────────────────────
   const handlePin = async (postId: string) => {
     try {
       await postApi.pinPost(postId)
-      if (profile) postApi.getUserPosts(profile.username).then((res) => setPosts(res.data.posts || []))
+      const res = await postApi.getUserPosts(username)
+      setPosts(res.data.posts || [])
     } catch {}
   }
 
   const handleUnpin = async (postId: string) => {
     try {
       await postApi.unpinPost(postId)
-      if (profile) postApi.getUserPosts(profile.username).then((res) => setPosts(res.data.posts || []))
+      const res = await postApi.getUserPosts(username)
+      setPosts(res.data.posts || [])
     } catch {}
   }
 
+  // ── New post ──────────────────────────────────────────────────────────────
   const handlePostCreated = () => {
     if (!profile) return
     setProfile({ ...profile, postsCount: profile.postsCount + 1 })
-    if (activeTab !== 'posts') {
-      setActiveTab('posts')
-    }
-    postApi.getUserPosts(profile.username).then((res) => setPosts(res.data.posts || []))
+    if (activeTab !== 'posts') setActiveTab('posts')
+    const res = postApi.getUserPosts(username)
+    res.then((r) => setPosts(r.data.posts || []))
   }
 
   if (loading) {
@@ -332,6 +277,7 @@ export default function ProfilePage() {
   }
 
   const isOwnProfile = currentUserId === profile.id
+  const currentPosts = activeTab === 'posts' ? posts : likes
 
   const mapPost = (post: PostData) => {
     const avatar = post.user.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${post.user.username}`
@@ -339,11 +285,7 @@ export default function ProfilePage() {
 
     return {
       id: post.id,
-      user: {
-        name: displayName,
-        username: post.user.username,
-        avatar,
-      },
+      user: { name: displayName, username: post.user.username, avatar },
       content: post.content,
       images: post.mediaUrls?.length ? post.mediaUrls : undefined,
       liked: post.isLiked ?? false,
@@ -393,10 +335,10 @@ export default function ProfilePage() {
 
       {/* Tabs */}
       <div className="flex border-b border-border">
-        <button onClick={() => switchTab('posts')} className={tabClasses('posts')}>
+        <button onClick={() => handleTabChange('posts')} className={tabClasses('posts')}>
           Posts
         </button>
-        <button onClick={() => switchTab('likes')} className={tabClasses('likes')}>
+        <button onClick={() => handleTabChange('likes')} className={tabClasses('likes')}>
           Likes
         </button>
       </div>
@@ -408,13 +350,13 @@ export default function ProfilePage() {
 
       {/* Posts list */}
       <div className="divide-y divide-border">
-        {posts.length === 0 ? (
+        {currentPosts.length === 0 ? (
           <div className="p-8 text-center text-text-muted">
             {activeTab === 'posts' && 'ไม่มีโพสต์เลย'}
             {activeTab === 'likes' && 'ยังไม่ได้ like โพสต์ใดเลย'}
           </div>
         ) : (
-          posts.map((post) => (
+          currentPosts.map((post) => (
             <PostCard
               key={post.id}
               post={mapPost(post)}
@@ -425,7 +367,7 @@ export default function ProfilePage() {
               onDelete={handleDelete}
               onPin={handlePin}
               onUnpin={handleUnpin}
-              currentUsername={currentUsername ?? undefined}
+              currentUsername={currentUserId ?? undefined}
             />
           ))
         )}

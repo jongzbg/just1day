@@ -126,6 +126,8 @@ export default function HomePage() {
       )
     } catch {
       setPosts(previousPosts)
+    } finally {
+      window.dispatchEvent(new CustomEvent('nexus:like-changed'))
     }
   }
 

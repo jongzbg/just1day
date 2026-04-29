@@ -25,8 +25,9 @@ export class UsersService {
             posts: true,
           },
         },
-        // Get ALL posts (including soft-deleted) for total likes count
+        // Get ALL active posts for total likes count
         posts: {
+          where: { deletedAt: null },
           select: {
             _count: {
               select: { likes: true },
@@ -159,10 +160,11 @@ export class UsersService {
     return { success: true, message: 'Unfollowed successfully' };
   }
 
-  async getTopCreators(limit: number = 10) {
-    // Get users ordered by total likes received on their posts
+  async getTopCreators(limit: number = 10, _currentUserId?: string) {
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    // Get users ordered by total likes received on their posts (last 24h)
     const users = await this.prisma.user.findMany({
-      take: limit,
+      take: limit * 3,
       select: {
         id: true,
         username: true,
@@ -175,6 +177,7 @@ export class UsersService {
           },
         },
         posts: {
+          where: { createdAt: { gte: yesterday } },
           select: {
             _count: {
               select: { likes: true },
@@ -184,13 +187,60 @@ export class UsersService {
       },
     });
 
-    const withLikes = users.map(u => ({
-      ...u,
-      likesCount: u.posts.reduce((s, p) => s + p._count.likes, 0),
-    })).filter(u => u.likesCount > 0);
+    const withLikes = users.map(u => {
+      const likesTodayCount = u.posts.reduce((s, p) => s + p._count.likes, 0);
+      return {
+        ...u,
+        likesTodayCount,
+      };
+    }).filter(u => u.likesTodayCount > 0);
+    withLikes.sort((a, b) => b.likesTodayCount - a.likesTodayCount);
+
+    return withLikes.slice(0, limit).map(({ posts, ...rest }) => rest);
+  }
+
+  async getMostLiked(limit: number = 10, _currentUserId?: string) {
+    // Get all users with all-time likes on all their non-deleted posts
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const users = await this.prisma.user.findMany({
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        _count: {
+          select: {
+            followers: true,
+            posts: true,
+          },
+        },
+        posts: {
+          where: { deletedAt: null },
+          select: {
+            createdAt: true,
+            _count: {
+              select: { likes: true },
+            },
+          },
+        },
+      },
+    });
+
+    const withLikes = users.map(u => {
+      const likesCount = u.posts.reduce((s, p) => s + p._count.likes, 0);
+      // Count likes today
+      const likesTodayCount = u.posts.filter(p => {
+        return p.createdAt >= yesterday;
+      }).reduce((s, p) => s + p._count.likes, 0);
+      return {
+        ...u,
+        likesCount,
+        likesTodayCount,
+      };
+    }).filter(u => u.likesCount > 0);
     withLikes.sort((a, b) => b.likesCount - a.likesCount);
 
-    return withLikes.map(({ posts, ...rest }) => rest);
+    return withLikes.slice(0, limit).map(({ posts, ...rest }) => rest);
   }
 
   async searchUsers(query: string, limit: number = 10) {
