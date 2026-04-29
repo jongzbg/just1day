@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import MainLayout from '@/components/layout/MainLayout'
 import ProfileHeader from '@/components/profile/ProfileHeader'
@@ -9,7 +9,7 @@ import PostCard from '@/components/posts/PostCard'
 import QuoteModal from '@/components/posts/QuoteModal'
 import { userApi, postApi } from '@/lib/api'
 
-type Tab = 'posts' | 'reposts' | 'likes'
+type Tab = 'posts' | 'likes'
 
 interface ProfileData {
   id: string
@@ -47,9 +47,6 @@ interface PostData {
     displayName: string | null
     avatarUrl: string | null
   }
-  // For reposted posts
-  repostedBy?: { id: string; username: string }
-  repostedAt?: string
   // For quote posts
   parentPost?: {
     id: string
@@ -79,11 +76,38 @@ export default function ProfilePage() {
   const [currentUsername, setCurrentUsername] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [activeTab, setActiveTab] = useState<Tab>('posts')
-
-  // Quote modal state
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    if (typeof window !== 'undefined') {
+      return (sessionStorage.getItem('profileTab') as Tab) || 'posts'
+    }
+    return 'posts'
+  })
+  const activeTabRef = useRef(activeTab)
   const [quotePost, setQuotePost] = useState<PostData | null>(null)
 
+  // Switch tab — fetch data accordingly
+  const switchTab = async (tab: Tab) => {
+    setActiveTab(tab)
+    activeTabRef.current = tab
+    sessionStorage.setItem('profileTab', tab)
+    const token = localStorage.getItem('token')
+    if (!token || !profile) return
+
+    // Use currentUsername from auth state — always set before user sees page
+    const username = currentUsername || profile.username
+
+    try {
+      if (tab === 'posts') {
+        const res = await postApi.getUserPosts(username)
+        setPosts(res.data.posts || [])
+      } else if (tab === 'likes') {
+        const res = await postApi.getUserLikedPosts(username)
+        setPosts(res.data.posts || [])
+      }
+    } catch {}
+  }
+
+  // Fetch user + profile + posts on mount (resets to current active tab)
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (!token) {
@@ -105,6 +129,10 @@ export default function ProfilePage() {
       })
       .then((res) => {
         setProfile(res.data)
+        // Fetch data based on current active tab
+        if (activeTabRef.current === 'likes') {
+          return postApi.getUserLikedPosts(username)
+        }
         return postApi.getUserPosts(username)
       })
       .then((res) => setPosts(res.data.posts || []))
@@ -116,29 +144,6 @@ export default function ProfilePage() {
         }
       })
       .finally(() => setLoading(false))
-  }
-
-  // Switch tab — fetch data accordingly
-  const switchTab = async (tab: Tab) => {
-    setActiveTab(tab)
-    const token = localStorage.getItem('token')
-    if (!token || !profile) return
-
-    // Use currentUsername from auth state — always set before user sees page
-    const username = currentUsername || profile.username
-
-    try {
-      if (tab === 'posts') {
-        const res = await postApi.getUserPosts(username)
-        setPosts(res.data.posts || [])
-      } else if (tab === 'reposts') {
-        const res = await postApi.getUserReposts(username)
-        setPosts(res.data.posts || [])
-      } else if (tab === 'likes') {
-        const res = await postApi.getUserLikedPosts(username)
-        setPosts(res.data.posts || [])
-      }
-    } catch {}
   }
 
   const handleFollow = async () => {
@@ -164,13 +169,13 @@ export default function ProfilePage() {
 
   // ── Like ──────────────────────────────────────────────────────────────
   const handleLike = async (postId: string, optimisticLiked: boolean) => {
-    const previousPosts = posts
+    const previousPosts = [...posts]
     setPosts((current) =>
       current.map((p) =>
         p.id === postId
           ? { ...p, isLiked: optimisticLiked, likesCount: optimisticLiked ? p.likesCount + 1 : Math.max(0, p.likesCount - 1) }
           : p
-      )
+      ).filter((p) => !(p.id === postId && p.isLiked === false && activeTab === 'likes'))
     )
     try {
       const res = await postApi.toggleLike(postId)
@@ -214,7 +219,7 @@ export default function ProfilePage() {
       setPosts((current) =>
         current.map((p) =>
           p.id === postId
-            ? { ...p, isReposted: res.data.isReposted, repostsCount: res.data.repostCount }
+            ? { ...p, isReposted: res.data.isReposted, repostsCount: res.data.repostsCount }
             : p
         )
       )
@@ -329,12 +334,8 @@ export default function ProfilePage() {
   const isOwnProfile = currentUserId === profile.id
 
   const mapPost = (post: PostData) => {
-    // For reposted posts: show original author as the post author
-    const isRepost = !!post.repostedBy
-    // user IS the original post author (from backend)
     const avatar = post.user.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${post.user.username}`
     const displayName = post.user.displayName || post.user.username
-    const timeSource = isRepost && post.repostedAt ? post.repostedAt : post.createdAt
 
     return {
       id: post.id,
@@ -348,7 +349,7 @@ export default function ProfilePage() {
       liked: post.isLiked ?? false,
       reposted: post.isReposted ?? false,
       isPinned: post.isPinned ?? false,
-      time: timeAgo(timeSource),
+      time: timeAgo(post.createdAt),
       stats: {
         comments: post.commentsCount,
         reposts: post.repostsCount,
@@ -356,9 +357,6 @@ export default function ProfilePage() {
         views: `${post.likesCount * 10}+`,
       },
       quotedPost: post.parentPost,
-      repostedBy: post.repostedBy
-        ? { username: post.repostedBy.username, displayName: post.repostedBy.username }
-        : undefined,
     }
   }
 
@@ -398,9 +396,6 @@ export default function ProfilePage() {
         <button onClick={() => switchTab('posts')} className={tabClasses('posts')}>
           Posts
         </button>
-        <button onClick={() => switchTab('reposts')} className={tabClasses('reposts')}>
-          Reposts
-        </button>
         <button onClick={() => switchTab('likes')} className={tabClasses('likes')}>
           Likes
         </button>
@@ -416,7 +411,6 @@ export default function ProfilePage() {
         {posts.length === 0 ? (
           <div className="p-8 text-center text-text-muted">
             {activeTab === 'posts' && 'ไม่มีโพสต์เลย'}
-            {activeTab === 'reposts' && 'ยังไม่ได้ repost โพสต์ใดเลย'}
             {activeTab === 'likes' && 'ยังไม่ได้ like โพสต์ใดเลย'}
           </div>
         ) : (

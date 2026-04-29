@@ -139,7 +139,7 @@ export default function FollowingPage() {
       setPosts((current) =>
         current.map((p) =>
           p.id === postId
-            ? { ...p, isReposted: res.data.isReposted, repostsCount: res.data.repostCount }
+            ? { ...p, isReposted: res.data.isReposted, repostsCount: res.data.repostsCount }
             : p
         )
       )

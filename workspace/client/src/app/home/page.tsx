@@ -164,7 +164,7 @@ export default function HomePage() {
             ? {
                 ...p,
                 isReposted: res.data.isReposted,
-                repostsCount: res.data.repostCount,
+                repostsCount: res.data.repostsCount,
               }
             : p
         )

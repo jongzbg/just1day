@@ -70,13 +70,14 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
   }
 
   const handleClick = (e: React.MouseEvent) => {
-    // Stop navigation if clicking interactive elements
+    // Stop navigation if clicking interactive elements OR if user selected text
     const target = e.target as HTMLElement
     if (
       target.closest('a') ||
       target.closest('button') ||
       target.closest('[data-no-nav]')
     ) return
+    if (window.getSelection()?.toString().length) return
     if (onClick) {
       onClick(e)
     } else {
@@ -85,7 +86,10 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
   }
 
   return (
-    <article onClick={handleClick} className="p-4 border-b border-border hover:bg-[#16181c]/50 transition-colors cursor-pointer">
+    <article
+      onClick={handleClick}
+      className="p-4 border-b border-border hover:bg-[#16181c]/50 transition-colors cursor-pointer"
+    >
       {/* Reposted by banner */}
       {post.repostedBy && (
         <div className="flex items-center gap-1.5 mb-1 ml-12 text-text-muted text-sm">
@@ -122,12 +126,20 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
         <div className="flex-1 min-w-0">
           {/* Header */}
           <div className="flex items-start justify-between">
-            <Link href={`/profile/${post.user.username}`} className="flex items-center gap-1 hover:underline flex-1 min-w-0">
-              <span className="font-bold text-text-primary truncate">
-                {post.user.name}
-              </span>
-              <span className="text-text-muted truncate">@{post.user.username} · {post.time}</span>
-            </Link>
+            <div className="flex items-center gap-1 flex-1 min-w-0">
+              <Link href={`/profile/${post.user.username}`} className="hover:underline">
+                <span className="font-bold text-text-primary truncate">
+                  {post.user.name}
+                </span>
+              </Link>
+              <Link href={`/profile/${post.user.username}`} className="text-text-muted truncate hover:underline">
+                @{post.user.username}
+              </Link>
+              <span className="text-text-muted">·</span>
+              <Link href={`/posts/${post.id}`} className="text-text-muted hover:underline">
+                {post.time}
+              </Link>
+            </div>
 
             {/* ... dropdown — only for own posts */}
             {isOwnPost && (
