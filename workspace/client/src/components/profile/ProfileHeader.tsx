@@ -24,33 +24,7 @@ interface ProfileHeaderProps {
 }
 
 export default function ProfileHeader({ user, isOwnProfile = false, onFollow }: ProfileHeaderProps) {
-  const [avatarDropdownOpen, setAvatarDropdownOpen] = useState(false)
-  const avatarDropdownRef = useRef<HTMLDivElement>(null)
-
-  // Close on click outside
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (avatarDropdownRef.current && !avatarDropdownRef.current.contains(e.target as Node)) {
-        setAvatarDropdownOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setAvatarDropdownOpen(false)
-    }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [])
-
-  const handleLogout = () => {
-    localStorage.removeItem('token')
-    window.location.href = '/login'
-  }
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false)
 
   return (
     <>
@@ -68,9 +42,10 @@ export default function ProfileHeader({ user, isOwnProfile = false, onFollow }: 
           )}
         </div>
         <div className="px-4 -mt-16 flex justify-between items-end relative z-10">
-          <div ref={avatarDropdownRef} className="relative">
+          <div>
+            {/* Click avatar to open full-size image */}
             <button
-              onClick={() => setAvatarDropdownOpen((prev) => !prev)}
+              onClick={() => setAvatarModalOpen(true)}
               className="p-1 bg-black rounded-full hover:ring-2 hover:ring-primary transition-all cursor-pointer"
             >
               <img
@@ -79,25 +54,6 @@ export default function ProfileHeader({ user, isOwnProfile = false, onFollow }: 
                 src={user.avatar}
               />
             </button>
-            {avatarDropdownOpen && (
-              <div className="absolute left-0 top-full mt-2 w-48 bg-[#200D21] border border-[#3F3F3F] rounded-xl shadow-2xl z-50 overflow-hidden">
-                <Link
-                  href="/edit-profile"
-                  onClick={() => setAvatarDropdownOpen(false)}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#3F3F3F]/30 transition-colors text-left"
-                >
-                  <span className="material-symbols-outlined text-[#1D9BF0]">edit</span>
-                  <span className="text-text-primary font-medium">Edit Profile</span>
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#3F3F3F]/30 transition-colors text-left"
-                >
-                  <span className="material-symbols-outlined text-red-500">logout</span>
-                  <span className="text-text-primary font-medium">Log out</span>
-                </button>
-              </div>
-            )}
           </div>
           {isOwnProfile ? (
             <Link
@@ -167,6 +123,26 @@ export default function ProfileHeader({ user, isOwnProfile = false, onFollow }: 
 
         {/* Tabs rendered by parent (ProfilePage) */}
       </section>
+
+      {/* Avatar full-size modal */}
+      {avatarModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setAvatarModalOpen(false)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white/70 hover:text-white text-3xl font-light cursor-pointer"
+            onClick={() => setAvatarModalOpen(false)}
+          >
+            ✕
+          </button>
+          <img
+            alt="Profile avatar"
+            className="max-w-full max-h-full rounded-2xl object-contain"
+            src={user.avatar}
+          />
+        </div>
+      )}
     </>
   )
 }

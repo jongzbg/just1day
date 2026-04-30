@@ -35,4 +35,24 @@ export class UploadController {
     const url = await this.uploadService.saveFile(file);
     return { url };
   }
+
+  @Post('avatar')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+      fileFilter: (_req, file, callback) => {
+        if (!file.mimetype.startsWith('image/')) {
+          return callback(new BadRequestException('Only image files are allowed'), false);
+        }
+        callback(null, true);
+      },
+    }),
+  )
+  async uploadAvatar(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+    const sizes = await this.uploadService.processAvatar(file);
+    return { ...sizes };
+  }
 }

@@ -18,10 +18,10 @@ export class UpdateProfileDto {
   website?: string;
 
   @IsOptional()
-  @IsUrl()
+  @IsString()
   avatarUrl?: string;
 
   @IsOptional()
-  @IsUrl()
+  @IsString()
   bannerUrl?: string;
 }
