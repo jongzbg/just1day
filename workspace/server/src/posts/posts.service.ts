@@ -482,7 +482,7 @@ export class PostsService {
     return { success: true };
   }
 
-  async getThread(postId: string, _currentUserId?: string) {
+  async getThread(postId: string, currentUserId?: string) {
     const post = await this.prisma.post.findUnique({
       where: { id: postId },
       include: {
@@ -501,12 +501,30 @@ export class PostsService {
       },
     });
 
+    // Check current user's like/repost status
+    let isLiked = false;
+    let isReposted = false;
+    if (currentUserId) {
+      const [like, repost] = await Promise.all([
+        this.prisma.like.findUnique({
+          where: { userId_postId: { userId: currentUserId, postId } },
+        }),
+        this.prisma.repost.findUnique({
+          where: { userId_postId: { userId: currentUserId, postId } },
+        }),
+      ]);
+      isLiked = !!like;
+      isReposted = !!repost;
+    }
+
     return {
       post: {
         ...post,
         likesCount: post._count.likes,
         commentsCount: replies.length,
         repostsCount: post._count.reposts,
+        isLiked,
+        isReposted,
       },
       replies: replies.map(r => ({
         ...r,

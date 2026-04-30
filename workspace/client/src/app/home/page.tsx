@@ -52,7 +52,7 @@ function timeAgo(date: string): string {
 export default function HomePage() {
   const router = useRouter()
   const [posts, setPosts] = useState<ApiPost[]>([])
-  const [currentUser, setCurrentUser] = useState<{ id: string; username: string } | null>(null)
+  const [currentUser, setCurrentUser] = useState<{ id: string; username: string; avatarUrl?: string | null } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -70,7 +70,7 @@ export default function HomePage() {
       return
     }
     authApi.me()
-      .then((res) => setCurrentUser({ id: res.data.id, username: res.data.username }))
+      .then((res) => setCurrentUser({ id: res.data.id, username: res.data.username, avatarUrl: res.data.avatarUrl }))
       .catch(() => {})
       .finally(() => fetchFeed())
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -204,7 +204,7 @@ export default function HomePage() {
         id: currentUser?.id ?? '',
         username: currentUser?.username ?? '',
         displayName: currentUser?.username ?? '',
-        avatarUrl: null,
+        avatarUrl: currentUser?.avatarUrl ?? null,
       },
       parentPost: {
         id: quotePost.id,
@@ -315,7 +315,11 @@ export default function HomePage() {
       </div>
 
       {/* Post Composer */}
-      <PostComposer onPostCreated={handlePostCreated} />
+      <PostComposer
+        onPostCreated={handlePostCreated}
+        avatarUrl={currentUser?.avatarUrl}
+        username={currentUser?.username}
+      />
 
       {/* Feed Posts */}
       <div className="divide-y divide-border">

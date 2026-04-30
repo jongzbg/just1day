@@ -21,6 +21,14 @@ interface MostLikedUser {
   likesTodayCount?: number
 }
 
+// Only use avatarUrl if it's a valid absolute URL; otherwise fall back to DiceBear
+const avatarSrc = (url: string | null | undefined, username: string) => {
+  if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+    return url
+  }
+  return `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`
+}
+
 export default function LeftSidebar() {
   const [creators, setCreators] = useState<TopCreator[]>([])
   const [mostLiked, setMostLiked] = useState<MostLikedUser[]>([])
@@ -66,7 +74,7 @@ export default function LeftSidebar() {
               <img
                 alt={user.displayName || user.username}
                 className="w-10 h-10 rounded-full bg-surface-base"
-                src={user.avatarUrl || '/default-avatar.png'}
+                src={avatarSrc(user.avatarUrl, user.username)}
               />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-text-primary truncate">{user.displayName || user.username}</p>
@@ -99,7 +107,7 @@ export default function LeftSidebar() {
               <img
                 alt={creator.displayName || creator.username}
                 className="w-10 h-10 rounded-full bg-surface-base"
-                src={creator.avatarUrl || '/default-avatar.png'}
+                src={avatarSrc(creator.avatarUrl, creator.username)}
               />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-text-primary truncate">{creator.displayName || creator.username}</p>

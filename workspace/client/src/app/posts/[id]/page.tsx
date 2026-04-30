@@ -403,21 +403,15 @@ export default function PostDetailPage() {
               </div>
             )}
 
-            {/* Stats + actions */}
-            <div className="flex items-center gap-6 mt-4 text-text-muted text-sm border-t border-border pt-3">
-              <span>
-                <strong className="text-text-primary">{formatCount(repostCount)}</strong> Reposts
-              </span>
-              <span>
-                <strong className="text-text-primary">{formatCount(post.commentsCount)}</strong> Replies
-              </span>
-              <span>
-                <strong className="text-text-primary">{formatCount(likeCount)}</strong> Likes
-              </span>
-            </div>
-
             {/* Action buttons */}
             <div className="flex items-center gap-2 mt-3 text-text-muted border-t border-border pt-3">
+              <button
+                onClick={() => textareaRef.current?.focus()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm hover:text-primary hover:bg-primary/10 transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">chat_bubble</span>
+                {post.commentsCount > 0 && <span className="text-xs">{formatCount(post.commentsCount)}</span>}
+              </button>
               <button
                 onClick={handleRepost}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors ${
@@ -427,14 +421,7 @@ export default function PostDetailPage() {
                 }`}
               >
                 <span className="material-symbols-outlined text-lg">repeat</span>
-                {reposted ? 'Reposted' : 'Repost'}
-              </button>
-              <button
-                onClick={() => textareaRef.current?.focus()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm hover:text-primary hover:bg-primary/10 transition-colors"
-              >
-                <span className="material-symbols-outlined text-lg">chat_bubble</span>
-                Reply
+                {repostCount > 0 && <span className="text-xs">{formatCount(repostCount)}</span>}
               </button>
               <button
                 onClick={handleLike}
@@ -448,7 +435,7 @@ export default function PostDetailPage() {
                 >
                   favorite
                 </span>
-                {liked ? 'Liked' : 'Like'}
+                {likeCount > 0 && <span className="text-xs">{formatCount(likeCount)}</span>}
               </button>
             </div>
           </div>

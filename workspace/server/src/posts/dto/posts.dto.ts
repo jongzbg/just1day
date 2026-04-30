@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, IsArray, IsUrl } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsArray } from 'class-validator';
 
 export class CreatePostDto {
   @IsString()
@@ -7,6 +7,6 @@ export class CreatePostDto {
 
   @IsOptional()
   @IsArray()
-  @IsUrl({}, { each: true })
+  @IsString({ each: true })
   mediaUrls?: string[];
 }

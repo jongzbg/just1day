@@ -42,7 +42,7 @@ export default function FollowingPage() {
   const [posts, setPosts] = useState<ApiPost[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [currentUsername, setCurrentUsername] = useState<string>('')
+  const [currentUser, setCurrentUser] = useState<{ username: string; avatarUrl?: string | null }>({ username: '' })
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -51,7 +51,7 @@ export default function FollowingPage() {
       return
     }
     fetchFollowingFeed()
-    authApi.me().then(r => setCurrentUsername(r.data.username)).catch(() => {})
+    authApi.me().then(r => setCurrentUser({ username: r.data.username, avatarUrl: r.data.avatarUrl })).catch(() => {})
   }, [])
 
   const fetchFollowingFeed = async () => {
@@ -232,7 +232,11 @@ export default function FollowingPage() {
       </div>
 
       {/* Post Composer */}
-      <PostComposer onPostCreated={handlePostCreated} />
+      <PostComposer
+        onPostCreated={handlePostCreated}
+        avatarUrl={currentUser.avatarUrl}
+        username={currentUser.username}
+      />
 
       {/* Feed Posts */}
       <div className="divide-y divide-border">
@@ -251,7 +255,7 @@ export default function FollowingPage() {
               onDelete={handleDelete}
               onPin={handlePin}
               onUnpin={handleUnpin}
-              currentUsername={currentUsername}
+              currentUsername={currentUser.username}
             />
           ))
         )}

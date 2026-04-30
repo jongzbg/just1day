@@ -41,6 +41,21 @@ export const userApi = {
 
 export { API_BASE_URL }
 
+// Upload endpoints
+export const uploadApi = {
+  uploadImage: (file: File) => {
+    const token = localStorage.getItem('token')
+    const formData = new FormData()
+    formData.append('file', file)
+    return axios.post(`${API_BASE_URL}/upload/image`, formData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+  },
+}
+
 // Post endpoints
 export const postApi = {
   getFeed: (cursor?: string) => api.get('/posts/feed', { params: { cursor } }),

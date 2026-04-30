@@ -1,23 +1,65 @@
 'use client'
 
-import { useState } from 'react'
-import { postApi } from '@/lib/api'
+import { useState, useRef } from 'react'
+import { postApi, uploadApi } from '@/lib/api'
 
 interface PostComposerProps {
   onPostCreated?: () => void
+  avatarUrl?: string | null
+  username?: string
 }
 
-export default function PostComposer({ onPostCreated }: PostComposerProps) {
+export default function PostComposer({ onPostCreated, avatarUrl, username }: PostComposerProps) {
   const [content, setContent] = useState('')
+  const [mediaFiles, setMediaFiles] = useState<{ url: string; preview: string }[]>([])
+  const [uploading, setUploading] = useState(false)
   const [loading, setLoading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const avatar =
+    avatarUrl || (username ? `https://api.dicebear.com/7.x/identicon/svg?seed=${username}` : '')
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+
+    setUploading(true)
+    const uploaded: { url: string; preview: string }[] = []
+
+    try {
+      for (const file of files) {
+        const preview = URL.createObjectURL(file)
+        const res = await uploadApi.uploadImage(file)
+        uploaded.push({ url: res.data.url, preview })
+      }
+      setMediaFiles((prev) => [...prev, ...uploaded].slice(0, 4)) // max 4 images
+    } catch (err) {
+      console.error('Failed to upload image:', err)
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const removeMedia = (index: number) => {
+    setMediaFiles((prev) => {
+      const next = [...prev]
+      URL.revokeObjectURL(next[index].preview)
+      next.splice(index, 1)
+      return next
+    })
+  }
 
   const handlePost = async () => {
-    if (!content.trim()) return
+    if (!content.trim() && mediaFiles.length === 0) return
 
     setLoading(true)
     try {
-      await postApi.createPost(content.trim())
+      const mediaUrls = mediaFiles.map((m) => m.url)
+      await postApi.createPost(content.trim(), mediaUrls)
       setContent('')
+      mediaFiles.forEach((m) => URL.revokeObjectURL(m.preview))
+      setMediaFiles([])
       onPostCreated?.()
     } catch (err) {
       console.error('Failed to create post:', err)
@@ -31,7 +73,7 @@ export default function PostComposer({ onPostCreated }: PostComposerProps) {
       <img
         alt="Me"
         className="w-10 h-10 rounded-full shrink-0"
-        src="https://lh3.googleusercontent.com/aida-public/AB6AXuByXvU8QSuhgigTfXi5wTpJQAkBr8vXolX3VfLpqESxglE5uM7SCu1CT0TqFLUpGqjfclKlpLpOBETfYn3xPYRFS7FMpQ7TrumPaQ6aHkO3yCY_rYrnXeG2UNUNFMaeZF3rlWx8ppHyp8bhes7NozIJW2WOpy5rAWTzr7lcdeknsw3MDwrvdj1ICrdqFau_m7smt8rN7woXZ5AJ33_KxUKwXaWfdrvKxgk4sm9nX5kCNnFb24aMISQejHBo8E97bm3zldbfLK9NpPc"
+        src={avatar}
       />
       <div className="flex-1">
         <textarea
@@ -40,27 +82,72 @@ export default function PostComposer({ onPostCreated }: PostComposerProps) {
           className="w-full bg-transparent border-none focus:ring-0 text-xl text-text-primary placeholder-text-muted resize-none h-24"
           placeholder="What is happening?!"
         />
+
+        {/* Media preview */}
+        {mediaFiles.length > 0 && (
+          <div className={`grid gap-2 mt-2 ${
+            mediaFiles.length === 1 ? 'grid-cols-1' :
+            mediaFiles.length === 2 ? 'grid-cols-2' :
+            mediaFiles.length >= 3 ? 'grid-cols-2' : ''
+          }`}>
+            {mediaFiles.map((media, i) => (
+              <div key={i} className="relative rounded-xl overflow-hidden bg-surface-base border border-border">
+                {media.url.match(/\.(mp4|webm|mov)$/i) ? (
+                  <video src={media.preview} controls className="w-full object-cover max-h-64" />
+                ) : (
+                  <img src={media.preview} alt="" className="w-full object-cover max-h-64" />
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeMedia(i)}
+                  className="absolute top-1 right-1 w-6 h-6 bg-black/70 hover:bg-black rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
           <div className="flex items-center gap-1 text-primary">
-            <button className="p-2 hover:bg-primary/10 rounded-full transition-colors">
-              <span className="material-symbols-outlined text-xl">image</span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="p-2 hover:bg-primary/10 rounded-full transition-colors disabled:opacity-50"
+              title="Add image or video"
+            >
+              {uploading ? (
+                <span className="material-symbols-outlined text-xl animate-spin">progress_activity</span>
+              ) : (
+                <span className="material-symbols-outlined text-xl">image</span>
+              )}
             </button>
-            <button className="p-2 hover:bg-primary/10 rounded-full transition-colors">
+            <button className="p-2 hover:bg-primary/10 rounded-full transition-colors" title="GIF">
               <span className="material-symbols-outlined text-xl">gif_box</span>
             </button>
-            <button className="p-2 hover:bg-primary/10 rounded-full transition-colors">
+            <button className="p-2 hover:bg-primary/10 rounded-full transition-colors" title="Poll">
               <span className="material-symbols-outlined text-xl">poll</span>
             </button>
-            <button className="p-2 hover:bg-primary/10 rounded-full transition-colors">
+            <button className="p-2 hover:bg-primary/10 rounded-full transition-colors" title="Emoji">
               <span className="material-symbols-outlined text-xl">sentiment_satisfied</span>
             </button>
-            <button className="p-2 hover:bg-primary/10 rounded-full transition-colors">
+            <button className="p-2 hover:bg-primary/10 rounded-full transition-colors" title="Schedule">
               <span className="material-symbols-outlined text-xl">calendar_month</span>
             </button>
           </div>
           <button
             onClick={handlePost}
-            disabled={!content.trim() || loading}
+            disabled={(!content.trim() && mediaFiles.length === 0) || loading}
             className="bg-primary text-white font-bold px-5 py-2 rounded-full hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
             {loading ? 'กำลังโพสต์...' : 'Post'}

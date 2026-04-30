@@ -120,6 +120,7 @@ export class PostsController {
 
   // ── Thread / Replies ─────────────────────────────────────────────────
   // GET /posts/:id/thread — all nested replies for a post
+  @UseGuards(JwtAuthGuard)
   @Get(':id/thread')
   async getThread(@Param('id') id: string, @Request() req) {
     return this.postsService.getThread(id, req.user?.id);

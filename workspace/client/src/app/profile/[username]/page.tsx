@@ -7,7 +7,7 @@ import ProfileHeader from '@/components/profile/ProfileHeader'
 import PostComposer from '@/components/posts/PostComposer'
 import PostCard from '@/components/posts/PostCard'
 import QuoteModal from '@/components/posts/QuoteModal'
-import { userApi, postApi } from '@/lib/api'
+import { userApi, postApi, authApi } from '@/lib/api'
 
 type Tab = 'posts' | 'likes'
 
@@ -86,6 +86,10 @@ export default function ProfilePage() {
       return
     }
 
+    authApi.me()
+      .then((res) => setCurrentUserId(res.data.id))
+      .catch(() => {})
+
     userApi.getProfile(username)
       .then((res) => {
         setProfile(res.data)
@@ -137,20 +141,24 @@ export default function ProfilePage() {
       )
 
     if (activeTab === 'posts') {
-      setPosts((prev) => update(prev).filter((p) => !(p.id === postId && p.isLiked === false)))
+      setPosts((prev) => update(prev))
     } else {
-      setLikes((prev) => update(prev).filter((p) => !(p.id === postId && p.isLiked === false)))
+      // Only filter out from Likes tab after successful unlike
+      setLikes((prev) => update(prev))
     }
 
     try {
       const res = await postApi.toggleLike(postId)
       const sync = (list: PostData[]) =>
         list.map((p) => p.id === postId ? { ...p, isLiked: res.data.isLiked, likesCount: res.data.likesCount } : p)
-      if (activeTab === 'posts') setPosts((prev) => sync(prev))
-      else setLikes((prev) => sync(prev))
 
-      // Refresh likes tab
-      setLikes([])
+      if (activeTab === 'posts') {
+        setPosts((prev) => sync(prev))
+      } else {
+        // Filter out from Likes tab only after confirmed unlike from server
+        setLikes((prev) => sync(prev).filter((p) => !(p.id === postId && !res.data.isLiked)))
+      }
+
       window.dispatchEvent(new CustomEvent('nexus:like-changed'))
     } catch {}
   }
@@ -169,17 +177,24 @@ export default function ProfilePage() {
           : p
       )
 
-    if (activeTab === 'posts') setPosts(update(posts))
-    else setLikes(update(likes))
+    const setFn = activeTab === 'posts' ? setPosts : setLikes
+    // Optimistic update
+    setFn(update)
 
     try {
       const res = post.isReposted
         ? await postApi.unrepost(postId)
         : await postApi.repost(postId)
-      const sync = (arr: PostData[]) =>
-        arr.map((p) => p.id === postId ? { ...p, isReposted: res.data.isReposted, repostsCount: res.data.repostsCount } : p)
-      if (activeTab === 'posts') setPosts(sync(posts))
-      else setLikes(sync(likes))
+      // Sync with server response using functional update to avoid stale closure
+      setFn((prev) => {
+        const synced = prev.map((p) =>
+          p.id === postId ? { ...p, isReposted: res.data.isReposted, repostsCount: res.data.repostsCount } : p
+        )
+        // Remove from Tab Posts if isReposted is now false
+        return activeTab === 'posts'
+          ? synced.filter((p) => !(p.id === postId && !p.isReposted))
+          : synced
+      })
     } catch {}
   }
 
@@ -345,7 +360,11 @@ export default function ProfilePage() {
 
       {/* Post Composer — only on own profile */}
       {isOwnProfile && activeTab === 'posts' && (
-        <PostComposer onPostCreated={handlePostCreated} />
+        <PostComposer
+          onPostCreated={handlePostCreated}
+          avatarUrl={profile.avatarUrl}
+          username={profile.username}
+        />
       )}
 
       {/* Posts list */}

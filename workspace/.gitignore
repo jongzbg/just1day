@@ -44,3 +44,6 @@ Thumbs.db
 .env.local
 .env.*.local
 *.windows
+
+# Uploads
+uploads/

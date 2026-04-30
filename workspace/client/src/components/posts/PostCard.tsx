@@ -198,38 +198,42 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
             </div>
           )}
 
-          {/* Single Image */}
-          {post.image && !post.images && (
-            <div className="mt-3 rounded-2xl overflow-hidden border border-border">
-              <img
-                alt=""
-                className="w-full object-cover aspect-video"
-                src={post.image}
-              />
+          {/* Gallery Grid */}
+          {post.images && post.images.length > 1 && (
+            <div
+              className="mt-3 rounded-2xl overflow-hidden border border-border"
+              style={{ maxHeight: '400px' }}
+            >
+              <div
+                className="grid gap-0.5"
+                style={{
+                  gridTemplateColumns: post.images.length === 2 ? '1fr 1fr' : '1fr 1fr',
+                  gridTemplateRows: post.images.length <= 2 ? '1fr' : '1fr 1fr',
+                }}
+              >
+                {post.images.map((img, i) => (
+                  <div key={i} className="overflow-hidden" style={{ maxHeight: post.images!.length >= 3 ? '200px' : '400px' }}>
+                    <img
+                      alt=""
+                      className="w-full h-full object-cover"
+                      src={img}
+                      style={{ maxHeight: post.images!.length >= 3 ? '200px' : '400px' }}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
-          {/* Gallery Grid */}
-          {post.images && (
-            <div className="mt-3 grid grid-cols-2 grid-rows-2 gap-1 rounded-2xl overflow-hidden border border-border aspect-video">
-              {post.images[0] && (
-                <div className="row-span-2">
-                  <img
-                    alt=""
-                    className="w-full h-full object-cover"
-                    src={post.images[0]}
-                  />
-                </div>
-              )}
-              {post.images.slice(1).map((img, i) => (
-                <div key={i}>
-                  <img
-                    alt=""
-                    className="w-full h-full object-cover"
-                    src={img}
-                  />
-                </div>
-              ))}
+          {/* Single Image */}
+          {post.images && post.images.length === 1 && (
+            <div className="mt-3 rounded-2xl overflow-hidden border border-border">
+              <img
+                alt=""
+                className="w-full object-cover"
+                style={{ maxHeight: '400px' }}
+                src={post.images[0]}
+              />
             </div>
           )}
 
