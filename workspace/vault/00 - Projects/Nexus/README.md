@@ -71,6 +71,8 @@ npm run dev
 - [x] Search users
 - [x] Feed (For You / Following)
 - [x] Top creators leaderboard
+- [x] Avatar upload with Sharp processing (3 WebP sizes)
+- [x] Banner upload
 
 ## Database Schema
 

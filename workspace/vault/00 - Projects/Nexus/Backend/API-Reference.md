@@ -21,9 +21,36 @@ Response: { accessToken }
 ### Get Current User
 ```
 GET /auth/me
-Headers: Authorization: Bearer <token>
+Headers: Authorization: Bearer ***
 Response: { user }
 ```
+
+---
+
+## Upload
+
+### Upload Image (Banner & Post Media)
+```
+POST /upload/image
+Headers: Authorization: Bearer ***
+Content-Type: multipart/form-data
+Body: file (binary image/video, max 10MB)
+Response: { url: "http://localhost:3001/uploads/filename.jpg" }
+```
+
+### Upload Avatar (Profile Picture)
+```
+POST /upload/avatar
+Headers: Authorization: Bearer ***
+Content-Type: multipart/form-data
+Body: file (binary image only, max 10MB)
+Response: {
+  "thumb": "http://localhost:3001/uploads/avatars/xxx-thumb.webp",
+  "medium": "http://localhost:3001/uploads/avatars/xxx-medium.webp",
+  "full": "http://localhost:3001/uploads/avatars/xxx-full.webp"
+}
+```
+Avatar is processed into 3 WebP sizes: thumb (200×200 crop), medium (800px max), full (1600px max).
 
 ---
 
@@ -32,50 +59,51 @@ Response: { user }
 ### Search Users
 ```
 GET /users/search?q=<query>&limit=10
-Headers: Authorization: Bearer <token>
+Headers: Authorization: Bearer ***
 Response: User[]
 ```
 
 ### Get User Profile
 ```
 GET /users/:username
-Headers: Authorization: Bearer <token>
+Headers: Authorization: Bearer ***
 Response: { id, username, displayName, avatarUrl, bio, ... }
 ```
 
 ### Update Profile
 ```
 PATCH /users/me
-Headers: Authorization: Bearer <token>
+Headers: Authorization: Bearer ***
 Body: { displayName?, bio?, location?, website?, avatarUrl?, bannerUrl? }
 Response: Updated user object
 ```
+**Note:** `avatarUrl` and `bannerUrl` accept any string URL (no strict URL validation).
 
 ### Follow User
 ```
 POST /users/:id/follow
-Headers: Authorization: Bearer <token>
+Headers: Authorization: Bearer ***
 Response: { success: true }
 ```
 
 ### Unfollow User
 ```
 DELETE /users/:id/follow
-Headers: Authorization: Bearer <token>
+Headers: Authorization: Bearer ***
 Response: { success: true }
 ```
 
-### Get Top Creators
+### Get Top Creators (Today's Likes)
 ```
-GET /users/top/creators?limit=10
-Headers: Authorization: Bearer <token>
-Response: User[] ordered by followers
+GET /users/top/creators
+Headers: Authorization: Bearer ***
+Response: User[] ordered by likes received today
 ```
 
-### Get Most Likes
+### Get Most Likes (All-Time)
 ```
-GET /users/most-likes?limit=10
-Headers: Authorization: Bearer <token>
+GET /users/most-likes
+Headers: Authorization: Bearer ***
 Response: User[] ordered by total likes received
 ```
 
@@ -86,35 +114,43 @@ Response: User[] ordered by total likes received
 ### Get Feed (For You)
 ```
 GET /posts/feed?cursor=<timestamp>&limit=20
-Headers: Authorization: Bearer <token>
+Headers: Authorization: Bearer ***
 Response: { posts[], nextCursor }
 ```
 
 ### Get Following Feed
 ```
 GET /posts/following-feed?cursor=<timestamp>&limit=20
-Headers: Authorization: Bearer <token>
+Headers: Authorization: Bearer ***
 Response: { posts[], nextCursor }
 ```
 
 ### Get User Posts
 ```
 GET /posts/user/:username?cursor=<timestamp>&limit=20
-Headers: Authorization: Bearer <token>
+Headers: Authorization: Bearer ***
+Response: { posts[], nextCursor }
+```
+Returns original posts + reposts merged, sorted by time.
+
+### Get User Liked Posts
+```
+GET /posts/user/:username/likes
+Headers: Authorization: Bearer ***
 Response: { posts[], nextCursor }
 ```
 
 ### Get Single Post
 ```
 GET /posts/:id
-Headers: Authorization: Bearer <token>
+Headers: Authorization: Bearer ***
 Response: Post object with { isLiked, likesCount, commentsCount, repostsCount }
 ```
 
 ### Create Post
 ```
 POST /posts
-Headers: Authorization: Bearer <token>
+Headers: Authorization: Bearer ***
 Body: { content, mediaUrls? }
 Response: Created post object
 ```
@@ -122,42 +158,35 @@ Response: Created post object
 ### Delete Post
 ```
 DELETE /posts/:id
-Headers: Authorization: Bearer <token>
+Headers: Authorization: Bearer ***
 Response: { success: true }
 ```
 
-### Like Post
+### Like Post (Toggle)
 ```
 POST /posts/:id/like
-Headers: Authorization: Bearer <token>
-Response: { isLiked: true, likesCount: N }
-```
-
-### Unlike Post
-```
-POST /posts/:id/like
-Headers: Authorization: Bearer <token>
-Response: { isLiked: false, likesCount: N }
+Headers: Authorization: Bearer ***
+Response: { isLiked: boolean, likesCount: number }
 ```
 
 ### Repost
 ```
 POST /posts/:id/repost
-Headers: Authorization: Bearer <token>
-Response: { isReposted: true, repostsCount: N }
+Headers: Authorization: Bearer ***
+Response: { isReposted: true, repostsCount: number }
 ```
 
 ### Undo Repost
 ```
 DELETE /posts/:id/repost
-Headers: Authorization: Bearer <token>
-Response: { isReposted: false, repostsCount: N }
+Headers: Authorization: Bearer ***
+Response: { isReposted: false, repostsCount: number }
 ```
 
 ### Quote Post
 ```
 POST /posts/:id/quote
-Headers: Authorization: Bearer <token>
+Headers: Authorization: Bearer ***
 Body: { content }
 Response: Created post object
 ```
@@ -165,21 +194,22 @@ Response: Created post object
 ### Get Post Thread (Replies)
 ```
 GET /posts/:id/thread
-Headers: Authorization: Bearer <token>
+Headers: Authorization: Bearer ***
 Response: { post, replies[] }
 ```
+**Requires `@UseGuards(JwtAuthGuard)`** — returns `isLiked`, `isReposted` for the authenticated user.
 
 ### Get Comments
 ```
 GET /posts/:id/comments?cursor=<timestamp>
-Headers: Authorization: Bearer <token>
+Headers: Authorization: Bearer ***
 Response: { comments[], nextCursor }
 ```
 
 ### Add Comment
 ```
 POST /posts/:id/comment
-Headers: Authorization: Bearer <token>
+Headers: Authorization: Bearer ***
 Body: { content }
 Response: Created comment object
 ```
@@ -187,21 +217,21 @@ Response: Created comment object
 ### Delete Comment
 ```
 DELETE /posts/comments/:commentId
-Headers: Authorization: Bearer <token>
+Headers: Authorization: Bearer ***
 Response: { success: true }
 ```
 
 ### Pin Post
 ```
 POST /posts/:id/pin
-Headers: Authorization: Bearer <token>
+Headers: Authorization: Bearer ***
 Response: { success: true }
 ```
 
 ### Unpin Post
 ```
 DELETE /posts/:id/pin
-Headers: Authorization: Bearer <token>
+Headers: Authorization: Bearer ***
 Response: { success: true }
 ```
 
@@ -227,6 +257,7 @@ Response: { success: true }
   likesCount: number
   commentsCount: number
   repostsCount: number
+  repostedBy?: { id, username, displayName, avatarUrl }  // if repost
 }
 ```
 
@@ -245,6 +276,7 @@ Response: { success: true }
   followingCount: number
   postsCount: number
   likesCount: number
+  likesTodayCount: number
   isFollowing: boolean
 }
 ```

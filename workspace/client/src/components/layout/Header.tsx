@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
+import { io } from 'socket.io-client'
+import { useNotifications } from '@/hooks/useNotifications'
+import NotificationDropdown from '@/components/NotificationDropdown'
 
 interface SearchUser {
   id: string
@@ -16,6 +19,28 @@ interface SearchUser {
   }
 }
 
+interface NotificationActor {
+  id: string
+  username: string
+  displayName: string
+  avatarUrl: string | null
+}
+
+interface NotificationPost {
+  id: string
+  content: string
+}
+
+interface Notification {
+  id: string
+  type: 'LIKE' | 'COMMENT' | 'REPOST' | 'QUOTE' | 'MESSAGE' | 'FOLLOW'
+  actor: NotificationActor
+  post?: NotificationPost
+  conversationId?: string
+  isRead: boolean
+  createdAt: string
+}
+
 export default function Header() {
   const router = useRouter()
   const pathname = usePathname()
@@ -25,9 +50,77 @@ export default function Header() {
   const [showResults, setShowResults] = useState(false)
   const [searchLoading, setSearchLoading] = useState(false)
   const [user, setUser] = useState<{ username: string; displayName: string; avatarUrl: string | null } | null>(null)
+  const [showNotifications, setShowNotifications] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLDivElement>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const notificationRef = useRef<HTMLDivElement>(null)
+
+  // Notifications hook
+  const { unreadCount, markAsRead, decrementUnreadCount, refreshUnreadCount } = useNotifications({
+    onNewNotification: () => {
+      refreshUnreadCount()
+    },
+  })
+
+  // Separate state for message notifications
+  const [messageUnreadCount, setMessageUnreadCount] = useState(0)
+  const [showMessages, setShowMessages] = useState(false)
+  const messageRef = useRef<HTMLDivElement>(null)
+
+  // Fetch unread message count from chat API - count by conversation, not by message
+  const fetchMessageUnreadCount = async () => {
+    try {
+      const res = await fetch('http://localhost:3001/conversations', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      })
+      const data = await res.json()
+      // Count conversations with unread messages, not individual messages
+      const count = data.conversations?.filter((c: any) => c.unreadCount > 0).length || 0
+      setMessageUnreadCount(count)
+    } catch {}
+  }
+
+  useEffect(() => {
+    fetchMessageUnreadCount()
+  }, [])
+
+  // Listen for new message notifications via chat socket
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!token) return
+
+    const chatSocket = io(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/chat`, {
+      auth: { token },
+      transports: ['websocket'],
+    })
+
+    chatSocket.on('new_message', (message: any) => {
+      // Only increment if message is from another user
+      const currentUserId = user?.username
+      if (message.sender?.username !== currentUserId) {
+        setMessageUnreadCount(prev => prev + 1)
+      }
+    })
+
+    chatSocket.on('message_read', () => {
+      fetchMessageUnreadCount()
+    })
+
+    return () => {
+      chatSocket.disconnect()
+    }
+  }, [user])
+
+  // Listen for when messages are read in chat page
+  useEffect(() => {
+    const handleMessagesRead = (e: CustomEvent<{ conversationId: string }>) => {
+      // Recalculate from conversations list to get accurate count
+      fetchMessageUnreadCount()
+    }
+    window.addEventListener('messages_read', handleMessagesRead as EventListener)
+    return () => window.removeEventListener('messages_read', handleMessagesRead as EventListener)
+  }, [])
 
   // Fetch current user on mount
   useEffect(() => {
@@ -198,12 +291,46 @@ export default function Header() {
         </Link>
       </nav>
 
-      {/* Right: Notifications + Avatar */}
-      <div className="flex items-center justify-end gap-4 w-1/4">
-        <button className="p-2 hover:bg-surface-elevated rounded-full transition-colors relative">
-          <span className="material-symbols-outlined text-text-primary">notifications</span>
-          <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-black" />
-        </button>
+      {/* Right: Messages + Notifications + Avatar */}
+      <div className="flex items-center justify-end gap-3 w-1/4">
+        {/* Messages */}
+        <Link
+          href="/messages"
+          className="p-2 hover:bg-surface-elevated rounded-full transition-colors relative"
+        >
+          <span className="material-symbols-outlined text-text-primary">mail</span>
+          {messageUnreadCount > 0 && (
+            <>
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-primary rounded-full border-2 border-black" />
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-primary text-white text-xs font-bold rounded-full flex items-center justify-center px-1">
+                {messageUnreadCount > 99 ? '99+' : messageUnreadCount}
+              </span>
+            </>
+          )}
+        </Link>
+
+        {/* Notifications */}
+        <div className="relative" ref={notificationRef}>
+          <button
+            onClick={() => setShowNotifications(v => !v)}
+            className="p-2 hover:bg-surface-elevated rounded-full transition-colors relative"
+          >
+            <span className="material-symbols-outlined text-text-primary">notifications</span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-primary text-white text-xs font-bold rounded-full flex items-center justify-center px-1">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {showNotifications && (
+            <NotificationDropdown
+              onClose={() => setShowNotifications(false)}
+              onMarkAllAsRead={markAsRead}
+              onMarkOneAsRead={decrementUnreadCount}
+            />
+          )}
+        </div>
 
         {/* Avatar Dropdown */}
         <div className="relative" ref={dropdownRef}>

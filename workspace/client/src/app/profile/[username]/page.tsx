@@ -7,7 +7,9 @@ import ProfileHeader from '@/components/profile/ProfileHeader'
 import PostComposer from '@/components/posts/PostComposer'
 import PostCard from '@/components/posts/PostCard'
 import QuoteModal from '@/components/posts/QuoteModal'
+import { ProfileHeaderSkeleton, PostComposerSkeleton, PostSkeleton } from '@/components/Skeleton'
 import { userApi, postApi, authApi } from '@/lib/api'
+import { chatApi } from '@/lib/chatApi'
 
 type Tab = 'posts' | 'likes'
 
@@ -75,7 +77,12 @@ export default function ProfilePage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [activeTab, setActiveTab] = useState<Tab>('posts')
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('profileTab') as Tab) || 'posts'
+    }
+    return 'posts'
+  })
   const [quotePost, setQuotePost] = useState<PostData | null>(null)
 
   // ── Load profile on mount ────────────────────────────────────────────────
@@ -91,21 +98,21 @@ export default function ProfilePage() {
       .catch(() => {})
 
     userApi.getProfile(username)
-      .then((res) => {
-        setProfile(res.data)
-        return postApi.getUserPosts(username)
-      })
-      .then((res) => setPosts(res.data.posts || []))
+      .then((res) => setProfile(res.data))
       .catch((err) => {
         if (err.response?.status === 404) setError('User not found')
         else setError('Failed to load profile')
       })
       .finally(() => setLoading(false))
+
+    postApi.getUserPosts(username).then((res) => setPosts(res.data.posts || []))
+    postApi.getUserLikedPosts(username).then((res) => setLikes(res.data.posts || []))
   }, [username])
 
   // ── Tab switch ────────────────────────────────────────────────────────────
   const handleTabChange = (tab: Tab) => {
     setActiveTab(tab)
+    localStorage.setItem('profileTab', tab)
     if (tab === 'posts' && posts.length === 0) {
       postApi.getUserPosts(username).then((res) => setPosts(res.data.posts || []))
     } else if (tab === 'likes' && likes.length === 0) {
@@ -132,7 +139,8 @@ export default function ProfilePage() {
 
   // ── Like ──────────────────────────────────────────────────────────────────
   const handleLike = async (postId: string, optimisticLiked: boolean) => {
-    // Optimistic update on current tab
+    console.log('[ProfilePage] handleLike called, postId:', postId, 'optimisticLiked:', optimisticLiked);
+    // Optimistic update on BOTH tabs simultaneously
     const update = (list: PostData[]) =>
       list.map((p) =>
         p.id === postId
@@ -140,27 +148,66 @@ export default function ProfilePage() {
           : p
       )
 
-    if (activeTab === 'posts') {
-      setPosts((prev) => update(prev))
-    } else {
-      // Only filter out from Likes tab after successful unlike
-      setLikes((prev) => update(prev))
-    }
+    setPosts((prev) => update(prev))
+    setLikes((prev) => {
+      const updated = update(prev)
+      // Remove from Likes tab after confirmed unlike from server
+      if (!optimisticLiked) return updated.filter((p) => p.id !== postId)
+      return updated
+    })
 
     try {
       const res = await postApi.toggleLike(postId)
+      console.log('[ProfilePage] toggleLike response:', res.data);
       const sync = (list: PostData[]) =>
         list.map((p) => p.id === postId ? { ...p, isLiked: res.data.isLiked, likesCount: res.data.likesCount } : p)
 
-      if (activeTab === 'posts') {
-        setPosts((prev) => sync(prev))
-      } else {
-        // Filter out from Likes tab only after confirmed unlike from server
-        setLikes((prev) => sync(prev).filter((p) => !(p.id === postId && !res.data.isLiked)))
-      }
+      setPosts((prev) => sync(prev))
+      setLikes((prev) => {
+        if (!res.data.isLiked) return prev.filter((p) => p.id !== postId)
+        // Add to Likes tab if not already present (server confirmed the like)
+        if (!prev.find((p) => p.id === postId)) {
+          // Look up the post AFTER posts state has been synced
+          const postInPosts = posts.find((p) => p.id === postId)
+          if (postInPosts) {
+            const syncedPost = { ...postInPosts, isLiked: res.data.isLiked, likesCount: res.data.likesCount }
+            return [syncedPost, ...prev]
+          }
+        }
+        return prev.map((p) => p.id === postId ? { ...p, isLiked: res.data.isLiked, likesCount: res.data.likesCount } : p)
+      })
+
+      // Sync profile header likes count — update when liking/unliking own posts
+      setProfile((prev) => {
+        if (!prev) return prev
+        const postInPosts = posts.find((p) => p.id === postId)
+        const isOwnPost = postInPosts?.user.id === prev.id
+        if (!isOwnPost) return prev
+
+        // Check if post was created today for likesTodayCount
+        const isToday = postInPosts && new Date(postInPosts.createdAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)
+
+        if (res.data.isLiked) {
+          // Liking: increment both counts
+          return {
+            ...prev,
+            likesCount: prev.likesCount + 1,
+            likesTodayCount: isToday ? prev.likesTodayCount + 1 : prev.likesTodayCount,
+          }
+        } else {
+          // Unliking: decrement both counts
+          return {
+            ...prev,
+            likesCount: Math.max(0, prev.likesCount - 1),
+            likesTodayCount: isToday ? Math.max(0, prev.likesTodayCount - 1) : prev.likesTodayCount,
+          }
+        }
+      })
 
       window.dispatchEvent(new CustomEvent('nexus:like-changed'))
-    } catch {}
+    } catch (err) {
+      console.error('[ProfilePage] toggleLike error:', err);
+    }
   }
 
   // ── Repost ────────────────────────────────────────────────────────────────
@@ -266,7 +313,10 @@ export default function ProfilePage() {
   const handlePostCreated = () => {
     if (!profile) return
     setProfile({ ...profile, postsCount: profile.postsCount + 1 })
-    if (activeTab !== 'posts') setActiveTab('posts')
+    if (activeTab !== 'posts') {
+      setActiveTab('posts')
+      localStorage.setItem('profileTab', 'posts')
+    }
     const res = postApi.getUserPosts(username)
     res.then((r) => setPosts(r.data.posts || []))
   }
@@ -274,8 +324,10 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <MainLayout>
-        <div className="flex items-center justify-center h-64">
-          <span className="text-text-muted">กำลังโหลด...</span>
+        <ProfileHeaderSkeleton />
+        <div className="divide-y divide-border">
+          <PostComposerSkeleton />
+          {[1, 2, 3, 4, 5].map(i => <PostSkeleton key={i} />)}
         </div>
       </MainLayout>
     )
@@ -326,10 +378,21 @@ export default function ProfilePage() {
         : 'border-transparent text-text-muted'
     }`
 
+  // ── Message ─────────────────────────────────────────────────────────────────
+  const handleMessage = () => {
+    if (!profile) return
+    const token = localStorage.getItem('token')
+    if (!token) { router.push('/login'); return }
+    chatApi.createConversation(profile.id)
+      .then(res => router.push(`/messages/${res.data.id}`))
+      .catch(() => {})
+  }
+
   return (
     <MainLayout>
       <ProfileHeader
         user={{
+          id: profile.id,
           name: profile.displayName || profile.name,
           username: profile.username,
           bio: profile.bio || '',
@@ -346,6 +409,7 @@ export default function ProfilePage() {
         }}
         isOwnProfile={isOwnProfile}
         onFollow={handleFollow}
+        onMessage={handleMessage}
       />
 
       {/* Tabs */}

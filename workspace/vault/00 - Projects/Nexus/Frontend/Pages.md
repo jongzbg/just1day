@@ -18,7 +18,7 @@ client/src/app/
 │   └── [username]/
 │       └── page.tsx           # User profile
 └── edit-profile/
-    └── page.tsx               # Edit own profile
+    └── page.tsx               # Edit own profile (avatar/banner upload)
 ```
 
 ## Page Details
@@ -42,6 +42,7 @@ client/src/app/
 
 ### Profile (`/profile/:username`)
 - Banner + avatar + bio
+- Click avatar → full-size lightbox (all profiles)
 - Stats: followers, following, posts, likes
 - Tabs: Posts | Likes
 - Follow/Unfollow button (if not own profile)
@@ -49,25 +50,42 @@ client/src/app/
 
 ### Edit Profile (`/edit-profile`)
 - Edit display name, bio, location, website
-- Avatar/banner URL inputs
-- Preview images
+- Click avatar/banner → file picker opens
+- Upload → local preview immediately
+- Avatar: POST `/upload/avatar` → Sharp processes 3 WebP sizes → saves medium URL
+- Banner: POST `/upload/image` → saves raw file URL
+- Save button disabled during upload
 
 ## Components
 
-| Component | Location | Purpose |
-|----------|----------|---------|
-| `MainLayout` | `components/layout/` | 3-column layout wrapper |
-| `Header` | `components/layout/` | Top nav + search |
-| `LeftSidebar` | `components/layout/` | Leaderboards |
-| `RightSidebar` | `components/layout/` | Trending |
-| `BottomNav` | `components/layout/` | Mobile nav |
-| `FAB` | `components/layout/` | Floating action button |
-| `PostCard` | `components/posts/` | Single post display |
-| `PostComposer` | `components/posts/` | New post form |
-| `PostActions` | `components/posts/` | Like/repost/comment buttons |
-| `CommentModal` | `components/posts/` | Comments overlay |
-| `QuoteModal` | `components/posts/` | Quote post overlay |
-| `ProfileHeader` | `components/profile/` | Profile info + follow button |
+| Component        | Location                | Purpose                        |
+|------------------|-------------------------|--------------------------------|
+| `MainLayout`     | `components/layout/`     | 3-column layout wrapper         |
+| `Header`         | `components/layout/`     | Top nav + search               |
+| `LeftSidebar`    | `components/layout/`     | Leaderboards (Total/Today's likes) |
+| `RightSidebar`   | `components/layout/`     | Trending                       |
+| `BottomNav`      | `components/layout/`     | Mobile nav                     |
+| `FAB`            | `components/layout/`     | Floating action button         |
+| `PostCard`       | `components/posts/`      | Single post display            |
+| `PostComposer`   | `components/posts/`      | New post form                  |
+| `PostActions`    | `components/posts/`      | Like/repost/comment buttons    |
+| `CommentModal`   | `components/posts/`      | Comments overlay               |
+| `QuoteModal`     | `components/posts/`      | Quote post overlay             |
+| `ProfileHeader`  | `components/profile/`    | Profile info + avatar lightbox |
+
+## Key Frontend Bugs Fixed
+
+### Optimistic UI — Stale Closure
+`handleLike` and `handleRepost` on profile page used `setState(value)` instead of `setState(prev => ...)`, causing no re-render when API returned same structure. Fixed with functional updates.
+
+### Filter Logic
+- Unlike on Tab Likes: filter only **after** server confirms, not optimistically
+- Undo repost on Tab Posts: filter post out because it's no longer a repost
+- Both tabs must not filter the wrong list
+
+### Avatar Display
+- LeftSidebar: validate absolute URL before using `avatarUrl`, fallback to DiceBear
+- ProfileHeader: `isOwnProfile` check — own profile gets Edit/Logout dropdown, others get lightbox
 
 ## API Client
 
@@ -92,4 +110,28 @@ api.get('/users/search')
 api.get('/users/:username')
 api.patch('/users/me')
 api.post('/users/:id/follow')
+```
+
+## Upload Flow (Edit Profile)
+
+```
+User clicks avatar
+  ↓
+<input type="file"> opens
+  ↓
+File selected → URL.createObjectURL() shows preview
+  ↓
+POST /upload/avatar (FormData)
+  ↓
+Backend: sharp processes → thumb/medium/full.webp
+  ↓
+Frontend receives { thumb, medium, full }
+  ↓
+Save medium as avatarUrl in state
+  ↓
+User clicks Save
+  ↓
+PATCH /users/me { avatarUrl, ... }
+  ↓
+Redirect to /profile/:username
 ```

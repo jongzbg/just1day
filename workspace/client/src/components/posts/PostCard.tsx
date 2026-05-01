@@ -66,6 +66,7 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
       : parseInt(post.stats.likes.toString().replace(/[^0-9]/g, '')) * 1000
 
   const handleLike = () => {
+    console.log('[PostCard] handleLike called, post.id:', post.id, 'current liked:', liked);
     onLike?.(post.id, !liked)
   }
 

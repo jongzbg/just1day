@@ -53,19 +53,32 @@ export class PostsService {
   }
 
   async toggleLike(userId: string, postId: string) {
+    console.log('[toggleLike] userId:', userId, 'postId:', postId);
     const existing = await this.prisma.like.findUnique({
       where: { userId_postId: { userId, postId } },
     });
+    console.log('[toggleLike] existing:', existing);
 
     if (existing) {
       await this.prisma.like.deleteMany({ where: { userId, postId } });
       const post = await this.prisma.post.findUnique({ where: { id: postId }, select: { _count: { select: { likes: true } } } });
+      console.log('[toggleLike] After unlike, likesCount:', post?._count.likes);
       return { isLiked: false, liked: false, likesCount: post?._count.likes ?? 0 };
     }
 
     await this.prisma.like.create({ data: { userId, postId } });
-    const post = await this.prisma.post.findUnique({ where: { id: postId }, select: { _count: { select: { likes: true } } } });
-    return { isLiked: true, liked: true, likesCount: post?._count.likes ?? 0 };
+    console.log('[toggleLike] Like created');
+
+    // Create notification
+    const post = await this.prisma.post.findUnique({ where: { id: postId }, select: { userId: true } });
+    if (post && post.userId !== userId) {
+      await this.prisma.notification.create({
+        data: { type: 'LIKE', userId: post.userId, actorId: userId, postId },
+      });
+    }
+
+    const updated = await this.prisma.post.findUnique({ where: { id: postId }, select: { _count: { select: { likes: true } } } });
+    return { isLiked: true, liked: true, likesCount: updated?._count.likes ?? 0 };
   }
 
   async repost(userId: string, postId: string) {
@@ -78,8 +91,21 @@ export class PostsService {
     }
 
     await this.prisma.repost.create({ data: { userId, postId } });
-    const post = await this.prisma.post.findUnique({ where: { id: postId }, select: { _count: { select: { reposts: true } } } });
-    return { isReposted: true, success: true, repostsCount: post?._count.reposts ?? 0 };
+
+    // Create notification
+    const post = await this.prisma.post.findUnique({ where: { id: postId }, select: { userId: true } });
+    console.log('[repost] post.userId:', post?.userId, 'userId:', userId);
+    if (post && post.userId !== userId) {
+      const notif = await this.prisma.notification.create({
+        data: { type: 'REPOST', userId: post.userId, actorId: userId, postId },
+      });
+      console.log('[repost] Notification created:', notif.id, 'for userId:', post.userId);
+    } else {
+      console.log('[repost] No notification created - same user or post not found');
+    }
+
+    const updated = await this.prisma.post.findUnique({ where: { id: postId }, select: { _count: { select: { reposts: true } } } });
+    return { isReposted: true, success: true, repostsCount: updated?._count.reposts ?? 0 };
   }
 
   async unrepost(userId: string, postId: string) {
@@ -92,10 +118,19 @@ export class PostsService {
     const quoted = await this.prisma.post.findUnique({ where: { id: postId } });
     if (!quoted || quoted.deletedAt) throw new NotFoundException('Post not found');
 
-    return this.prisma.post.create({
+    const newPost = await this.prisma.post.create({
       data: { userId, username, content, parentId: postId },
       include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
     });
+
+    // Create notification
+    if (quoted.userId !== userId) {
+      await this.prisma.notification.create({
+        data: { type: 'QUOTE', userId: quoted.userId, actorId: userId, postId },
+      });
+    }
+
+    return newPost;
   }
 
   async pinPost(_postId: string, _userId: string) {
@@ -229,11 +264,15 @@ export class PostsService {
     if (!user) throw new NotFoundException('User not found');
 
     const take = 20;
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const where = cursor
+      ? { userId: user.id, deletedAt: null, parentId: null, createdAt: { lt: new Date(cursor) } }
+      : { userId: user.id, deletedAt: null, parentId: null, createdAt: { gte: yesterday } };
 
     // Fetch original posts AND reposts, then merge + sort
     const [posts, reposts] = await Promise.all([
       this.prisma.post.findMany({
-        where: { userId: user.id, deletedAt: null, parentId: null },
+        where,
         orderBy: { createdAt: 'desc' },
         include: {
           user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
@@ -241,7 +280,7 @@ export class PostsService {
         },
       }),
       this.prisma.repost.findMany({
-        where: { userId: user.id },
+        where: { userId: user.id, createdAt: { gte: yesterday }, post: { deletedAt: null, createdAt: { gte: yesterday } } },
         orderBy: { createdAt: 'desc' },
         include: {
           user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
@@ -321,6 +360,7 @@ export class PostsService {
 
   async getUserLikedPosts(username: string, _currentUserId?: string, cursor?: string) {
     const user = await this.prisma.user.findUnique({ where: { username } });
+    if (!user) throw new NotFoundException('User not found');
 
     const take = 20;
     // Always filter: only posts created within the last 24 hours
@@ -383,9 +423,13 @@ export class PostsService {
     if (!user) throw new NotFoundException('User not found');
 
     const take = 20;
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    // For reposts, filter by the original post's createdAt (not the repost's createdAt)
+    // Only show reposts where the original post is within 24h
     const where = cursor
-      ? { userId: user.id, createdAt: { lt: new Date(cursor) } }
-      : { userId: user.id };
+      ? { userId: user.id, post: { createdAt: { lt: new Date(cursor) } } }
+      : { userId: user.id, post: { createdAt: { gte: yesterday } } };
 
     const reposts = await this.prisma.repost.findMany({
       where,
@@ -467,10 +511,19 @@ export class PostsService {
     const post = await this.prisma.post.findUnique({ where: { id: postId } });
     if (!post || post.deletedAt) throw new NotFoundException('Post not found');
 
-    return this.prisma.post.create({
+    const comment = await this.prisma.post.create({
       data: { userId, username, content, parentId: postId },
       include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
     });
+
+    // Create notification
+    if (post.userId !== userId) {
+      await this.prisma.notification.create({
+        data: { type: 'COMMENT', userId: post.userId, actorId: userId, postId },
+      });
+    }
+
+    return comment;
   }
 
   async deleteComment(commentId: string, userId: string) {
