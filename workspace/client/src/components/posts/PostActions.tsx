@@ -50,7 +50,7 @@ export default function PostActions({
   }
 
   return (
-    <div className="flex items-center justify-between mt-3 text-text-muted max-w-md relative">
+    <div className="flex items-center justify-between mt-3 px-4 text-text-muted relative">
       {/* Comments */}
       <button
         className="flex items-center gap-2 hover:text-primary transition-colors group"

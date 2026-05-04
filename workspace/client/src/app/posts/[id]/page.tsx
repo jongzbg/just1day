@@ -4,8 +4,12 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import MainLayout from '@/components/layout/MainLayout'
+import PostCard from '@/components/posts/PostCard'
+import CommentModal from '@/components/posts/CommentModal'
+import QuoteModal from '@/components/posts/QuoteModal'
 import { postApi, authApi } from '@/lib/api'
 import { formatDistanceToNow } from '@/lib/format'
+import { PostSkeleton } from '@/components/Skeleton'
 
 interface ThreadUser {
   id: string
@@ -86,6 +90,8 @@ function ReplyItem({
     } catch {
       setLiked(!next)
       setLikeCount((c) => (next ? c - 1 : c + 1))
+    } finally {
+      window.dispatchEvent(new CustomEvent('nexus:like-changed'))
     }
   }
 
@@ -219,12 +225,15 @@ export default function PostDetailPage() {
   const [error, setError] = useState('')
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [currentUsername, setCurrentUsername] = useState<string | null>(null)
+  const [currentUserAvatar, setCurrentUserAvatar] = useState<string | null>(null)
   const [replyContent, setReplyContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
   const [reposted, setReposted] = useState(false)
   const [repostCount, setRepostCount] = useState(0)
+  const [quotePost, setQuotePost] = useState<ThreadPost | null>(null)
+  const [commentPost, setCommentPost] = useState<any>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -235,6 +244,7 @@ export default function PostDetailPage() {
       .then((res) => {
         setCurrentUserId(res.data.id)
         setCurrentUsername(res.data.username)
+        setCurrentUserAvatar(res.data.avatarUrl || null)
       })
       .catch(() => {})
       .finally(() => fetchThread())
@@ -274,6 +284,8 @@ export default function PostDetailPage() {
     } catch {
       setLiked(!next)
       setLikeCount((c) => (next ? c - 1 : c + 1))
+    } finally {
+      window.dispatchEvent(new CustomEvent('nexus:like-changed'))
     }
   }
 
@@ -288,6 +300,8 @@ export default function PostDetailPage() {
     } catch {
       setReposted(!next)
       setRepostCount((c) => (next ? c - 1 : c + 1))
+    } finally {
+      window.dispatchEvent(new CustomEvent('nexus:like-changed'))
     }
   }
 
@@ -326,6 +340,48 @@ export default function PostDetailPage() {
     )
   }
 
+  const handleQuote = () => {
+    if (!thread) return
+    setQuotePost(thread.post)
+  }
+
+  const handleQuoteSubmit = async (content: string) => {
+    if (!quotePost) return
+    try {
+      await postApi.quotePost(quotePost.id, content)
+      setQuotePost(null)
+    } catch {
+      // silent
+    }
+  }
+
+  const handleDelete = async () => {
+    try {
+      await postApi.deletePost(postId)
+      router.push('/home')
+    } catch {
+      // silent
+    }
+  }
+
+  const handlePin = async () => {
+    try {
+      await postApi.pinPost(postId)
+      setThread((t) => t ? { ...t, post: { ...t.post, isPinned: true } } : t)
+    } catch {
+      // silent
+    }
+  }
+
+  const handleUnpin = async () => {
+    try {
+      await postApi.unpinPost(postId)
+      setThread((t) => t ? { ...t, post: { ...t.post, isPinned: false } } : t)
+    } catch {
+      // silent
+    }
+  }
+
   const formatCount = (n: number) => {
     if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
     if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
@@ -335,8 +391,10 @@ export default function PostDetailPage() {
   if (loading) {
     return (
       <MainLayout>
-        <div className="flex items-center justify-center h-64">
-          <span className="text-text-muted">กำลังโหลด...</span>
+        <div className="divide-y divide-border">
+          <PostSkeleton />
+          <PostSkeleton />
+          <PostSkeleton />
         </div>
       </MainLayout>
     )
@@ -368,79 +426,38 @@ export default function PostDetailPage() {
       </div>
 
       {/* Main post */}
-      <article className="p-4 border-b border-border">
-        <div className="flex gap-3">
-          {/* Avatar */}
-          <Link href={`/profile/${post.user.username}`} className="shrink-0">
-            <img
-              src={avatarSrc(post.user.avatarUrl, post.user.username)}
-              alt={post.user.displayName || post.user.username}
-              className="w-12 h-12 rounded-full"
-            />
-          </Link>
-
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1 flex-wrap">
-              <Link
-                href={`/profile/${post.user.username}`}
-                className="font-bold text-text-primary hover:underline"
-              >
-                {post.user.displayName || post.user.username}
-              </Link>
-              <span className="text-text-muted">@{post.user.username}</span>
-              <span className="text-text-muted">·</span>
-              <span className="text-text-muted">{timeAgo(post.createdAt)}</span>
-            </div>
-            <p className="text-text-primary mt-1 leading-relaxed whitespace-pre-wrap break-words">{post.content}</p>
-
-            {/* Images */}
-            {post.mediaUrls && post.mediaUrls.length > 0 && (
-              <div className="mt-3 rounded-2xl overflow-hidden border border-border">
-                {post.mediaUrls.map((url, i) => (
-                  <img key={i} src={url} alt="" className="w-full object-cover max-h-96" />
-                ))}
-              </div>
-            )}
-
-            {/* Action buttons */}
-            <div className="flex items-center gap-2 mt-3 text-text-muted border-t border-border pt-3">
-              <button
-                onClick={() => textareaRef.current?.focus()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm hover:text-primary hover:bg-primary/10 transition-colors"
-              >
-                <span className="material-symbols-outlined text-lg">chat_bubble</span>
-                {post.commentsCount > 0 && <span className="text-xs">{formatCount(post.commentsCount)}</span>}
-              </button>
-              <button
-                onClick={handleRepost}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors ${
-                  reposted
-                    ? 'text-green-500 hover:text-green-400 bg-green-500/10'
-                    : 'hover:text-green-500 hover:bg-green-500/10'
-                }`}
-              >
-                <span className="material-symbols-outlined text-lg">repeat</span>
-                {repostCount > 0 && <span className="text-xs">{formatCount(repostCount)}</span>}
-              </button>
-              <button
-                onClick={handleLike}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors ${
-                  liked ? 'text-pink-500 hover:text-pink-400 bg-pink-500/10' : 'hover:text-pink-500 hover:bg-pink-500/10'
-                }`}
-              >
-                <span
-                  className="material-symbols-outlined text-lg"
-                  style={{ fontVariationSettings: liked ? "'FILL' 1" : "'FILL' 0" }}
-                >
-                  favorite
-                </span>
-                {likeCount > 0 && <span className="text-xs">{formatCount(likeCount)}</span>}
-              </button>
-            </div>
-          </div>
-        </div>
-      </article>
+      <PostCard
+        post={{
+          id: post.id,
+          user: {
+            name: post.user.displayName || post.user.username,
+            username: post.user.username,
+            avatar: avatarSrc(post.user.avatarUrl, post.user.username),
+          },
+          content: post.content,
+          images: post.mediaUrls?.length ? post.mediaUrls : undefined,
+          liked,
+          reposted,
+          isPinned: post.isPinned,
+          time: timeAgo(post.createdAt),
+          stats: {
+            comments: post.commentsCount,
+            reposts: post.repostsCount,
+            likes: post.likesCount,
+            views: `${post.likesCount * 10}+`,
+          },
+        }}
+        rawPost={thread.post}
+        onLike={handleLike}
+        onRepost={handleRepost}
+        onQuote={handleQuote}
+        onDelete={handleDelete}
+        onPin={handlePin}
+        onUnpin={handleUnpin}
+        onComment={setCommentPost}
+        currentUsername={currentUsername || undefined}
+        onClick={(e) => e.preventDefault()}
+      />
 
       {/* Reply input */}
       {currentUserId && (
@@ -450,7 +467,7 @@ export default function PostDetailPage() {
         >
           <Link href={`/profile/${currentUsername}`} className="shrink-0">
             <img
-              src={`https://api.dicebear.com/7.x/identicon/svg?seed=${currentUsername}`}
+              src={currentUserAvatar || `https://api.dicebear.com/7.x/identicon/svg?seed=${currentUsername}`}
               alt={currentUsername || 'you'}
               className="w-10 h-10 rounded-full"
             />
@@ -501,6 +518,54 @@ export default function PostDetailPage() {
           ))
         )}
       </div>
+
+      {/* Quote Modal */}
+      {quotePost && (
+        <QuoteModal
+          originalPost={{
+            id: quotePost.id,
+            content: quotePost.content,
+            user: {
+              username: quotePost.user.username,
+              displayName: quotePost.user.displayName || quotePost.user.username,
+              avatarUrl: quotePost.user.avatarUrl,
+            },
+          }}
+          onSubmit={handleQuoteSubmit}
+          onClose={() => setQuotePost(null)}
+        />
+      )}
+
+      {/* Comment Modal */}
+      {commentPost && currentUserId && (
+        <CommentModal
+          post={{
+            id: commentPost.id,
+            content: commentPost.content,
+            user: {
+              id: commentPost.user.id,
+              username: commentPost.user.username,
+              displayName: commentPost.user.displayName,
+              avatarUrl: commentPost.user.avatarUrl,
+            },
+            avatarUrl: commentPost.user.avatarUrl,
+          }}
+          onClose={() => setCommentPost(null)}
+          onCommentAdded={() => {
+            // Refresh thread to update comment count
+            fetchThread()
+          }}
+          onCommentDeleted={() => {
+            fetchThread()
+          }}
+          currentUser={{
+            id: currentUserId,
+            username: currentUsername || '',
+            displayName: currentUsername || '',
+            avatarUrl: currentUserAvatar,
+          }}
+        />
+      )}
     </MainLayout>
   )
 }

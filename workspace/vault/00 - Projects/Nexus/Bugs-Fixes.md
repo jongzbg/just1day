@@ -500,3 +500,425 @@ this.prisma.repost.findMany({
 
 ### Files Modified
 - `server/src/posts/posts.service.ts`
+
+---
+
+## Bug 15: LeftSidebar Avatar 404 - Wrong URL Replacement
+
+**Date:** 2026-05-01
+**Severity:** Medium
+
+### Problem
+LeftSidebar shows broken images (404) for users in "Total likes" and "Today's likes" cards, even though their profile page shows the correct avatar.
+
+### Root Cause
+`avatarSrc()` function incorrectly replaced backend URL (`http://localhost:3001`) with frontend URL (`http://localhost:3000`):
+
+```typescript
+// WRONG - Frontend (:3000) doesn't serve files!
+if (url.startsWith(backendHost)) {
+  return url.replace(backendHost, window.location.origin);  // → http://localhost:3000/uploads/...
+}
+```
+
+### Solution
+Keep backend URLs as-is. For relative URLs, prepend `API_BASE_URL`:
+
+```typescript
+// CORRECT - Keep backend URLs, prepend API_BASE_URL for relative paths
+if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+  return url;  // Keep backend URLs as-is
+}
+if (url && url.startsWith('/')) {
+  return `${API_BASE_URL}${url}`;  // → http://localhost:3001/uploads/...
+}
+```
+
+### Files Modified
+- `client/src/components/layout/LeftSidebar.tsx`
+
+### Key Insight
+**Frontend (Next.js :3000) does NOT serve static files** - only the **Backend (NestJS :3001)** serves `/uploads/*`. Always prepend `API_BASE_URL` for relative paths, don't replace the backend origin.
+
+---
+
+## Bug 16: PostCard — Click on Image Goes to Profile Instead of Thread
+
+**Date:** 2026-05-04
+**Severity:** High
+
+### Problem
+Clicking on an image in a post went to the author's profile instead of the thread.
+
+### Root Cause
+1. `<Link>` wrapper on avatar was matching click events from image area
+2. Image container didn't have `stopPropagation()` to prevent bubble-up
+
+### Solution
+1. Added `stopPropagation()` to avatar and header links
+2. Wrapped images with Link to `/posts/:id`
+3. Added `w-10 h-10 shrink-0` to avatar Link to prevent it from stretching
+
+```tsx
+// Avatar Link - stop bubble + size constraint
+<Link
+  href={`/profile/${post.user.username}`}
+  className="shrink-0 w-10 h-10"
+  onClick={(e) => e.stopPropagation()}
+>
+  <img ... />
+</Link>
+
+// Image Link - go to thread
+<Link href={`/posts/${post.id}`} onClick={(e) => e.stopPropagation()}>
+  <img ... />
+</Link>
+```
+
+### Files Modified
+- `client/src/components/posts/PostCard.tsx`
+
+---
+
+## Bug 17: parseContent — Missing @mention & External URL Detection
+
+**Date:** 2026-05-04
+**Severity:** Medium
+
+### Problem
+@mentions were not clickable links to profile, and external URLs were not opening in browser.
+
+### Root Cause
+`parseContent()` only detected `#hashtags`, not `@mentions` or URLs.
+
+### Solution
+Updated regex pattern to match all three:
+
+```tsx
+function parseContent(content: string): React.ReactNode[] {
+  const parts = content.split(/(@[\wก-๙]+)|(#[฀-๿\w]+)|(https?:\/\/[^\s]+)/g)
+  return parts.map((part, i) => {
+    if (!part) return part
+
+    // @mention
+    if (part.startsWith('@')) {
+      const username = part.slice(1)
+      return (
+        <Link href={`/profile/${username}`} onClick={(e) => e.stopPropagation()}>
+          {part}
+        </Link>
+      )
+    }
+
+    // #hashtag
+    if (part.startsWith('#')) {
+      const tag = part.slice(1)
+      return (
+        <Link href={`/hashtag/${tag}`} onClick={(e) => e.stopPropagation()}>
+          {part}
+        </Link>
+      )
+    }
+
+    // External URL
+    if (part.startsWith('http://') || part.startsWith('https://')) {
+      return (
+        <a href={part} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+          {part}
+        </a>
+      )
+    }
+
+    return part
+  })
+}
+```
+
+### Files Modified
+- `client/src/components/posts/PostCard.tsx`
+
+---
+
+## Bug 18: Single Image — Lightbox Navigation Arrows Showing
+
+**Date:** 2026-05-04
+**Severity:** Low
+
+### Problem
+Single image posts showed left/right navigation arrows in lightbox, which are unnecessary for 1 image.
+
+### Root Cause
+Lightbox default behavior shows navigation arrows regardless of slide count.
+
+### Solution
+Use `render.buttonPrev` and `render.buttonNext` props to conditionally hide arrows:
+
+```tsx
+<Lightbox
+  open
+  close={closeLightbox}
+  slides={mediaImages.map((src) => ({ src }))}
+  index={lightboxIndex}
+  render={{
+    buttonPrev: mediaImages.length > 1 ? undefined : () => null,
+    buttonNext: mediaImages.length > 1 ? undefined : () => null,
+  }}
+/>
+```
+
+### Files Modified
+- `client/src/components/posts/PostCard.tsx`
+
+---
+
+## Bug 19: Thread Page — Icons Layout Different from Home
+
+**Date:** 2026-05-04
+**Severity:** Medium
+
+### Problem
+Icons (comment, repost, like) on Thread page looked different from Home/Profile pages.
+
+### Root Cause
+Thread page used inline button rendering instead of `<PostCard>` component.
+
+### Solution
+Replaced inline article rendering with `<PostCard>` component:
+
+```tsx
+// BEFORE - inline rendering with different CSS
+<article className="p-4 border-b border-border">
+  <div className="flex items-center gap-2 ...">
+    <button>chat_bubble</button>
+    <button>repeat</button>
+    <button>favorite</button>
+  </div>
+</article>
+
+// AFTER - use shared PostCard component
+<PostCard
+  post={mapPost(post)}
+  rawPost={thread.post}
+  onLike={handleLike}
+  onRepost={handleRepost}
+  onQuote={handleQuote}
+  onComment={setCommentPost}
+  currentUsername={currentUsername || undefined}
+  onClick={(e) => e.preventDefault()}
+/>
+```
+
+### Files Modified
+- `client/src/app/posts/[id]/page.tsx`
+- Removed inline action buttons → now uses PostCard → PostActions
+
+---
+
+## Bug 20: Thread Page — Avatar Wrong in CommentModal
+
+**Date:** 2026-05-04
+**Severity:** Medium
+
+### Problem
+When clicking comment icon on Thread page, the CommentModal showed wrong avatar for the current user.
+
+### Root Cause
+`currentUser` object in Thread page didn't include `avatarUrl` from `authApi.me()`.
+
+### Solution
+Added `currentUserAvatar` state and pass it to CommentModal:
+
+```tsx
+// State
+const [currentUserAvatar, setCurrentUserAvatar] = useState<string | null>(null)
+
+// Fetch
+authApi.me().then((res) => {
+  setCurrentUsername(res.data.username)
+  setCurrentUserAvatar(res.data.avatarUrl || null)
+})
+
+// Pass to CommentModal
+<CommentModal
+  currentUser={{
+    id: currentUserId,
+    username: currentUsername || '',
+    displayName: currentUsername || '',
+    avatarUrl: currentUserAvatar,  // Use real avatar
+  }}
+/>
+```
+
+### Files Modified
+- `client/src/app/posts/[id]/page.tsx`
+
+---
+
+## Bug 21: Thread Page — Reply Input Avatar Wrong
+
+**Date:** 2026-05-04
+**Severity:** Low
+
+### Problem
+Reply input at bottom of Thread page ("Reply to @username...") showed wrong avatar.
+
+### Root Cause
+Used hardcoded dicebear fallback instead of user's actual avatar URL.
+
+### Solution
+Use `currentUserAvatar` with dicebear fallback:
+
+```tsx
+// BEFORE
+<img src={`https://api.dicebear.com/7.x/identicon/svg?seed=${currentUsername}`} ... />
+
+// AFTER
+<img src={currentUserAvatar || `https://api.dicebear.com/7.x/identicon/svg?seed=${currentUsername}`} ... />
+```
+
+### Files Modified
+- `client/src/app/posts/[id]/page.tsx`
+
+---
+
+## Bug 22: PostActions — Icons Too Close to Edge
+
+**Date:** 2026-05-04
+**Severity:** Low
+
+### Problem
+Icons in PostActions were too close to the left/right edges on Thread page.
+
+### Root Cause
+PostActions container had no horizontal padding.
+
+### Solution
+Added `px-4` to PostActions container:
+
+```tsx
+<div className="flex items-center justify-between mt-3 px-4 text-text-muted relative">
+  ...
+</div>
+```
+
+### Files Modified
+- `client/src/components/posts/PostActions.tsx`
+
+---
+
+## Bug 23: Like/Repost Creates Duplicate Notifications
+
+**Date:** 2026-05-04
+**Severity:** High
+
+### Problem
+Rapidly clicking like/unlike on the same post created multiple notification entries for the same action.
+
+### Root Cause
+Backend didn't check for existing notification before creating, and didn't delete notification when unliking.
+
+### Solution
+1. Check for existing notification before creating
+2. Delete notification when unliking/unreposting
+
+```typescript
+// toggleLike - unlike
+if (existing) {
+  await this.prisma.like.deleteMany({ where: { userId, postId } });
+  // DELETE notification on unlike
+  await this.prisma.notification.deleteMany({
+    where: { type: 'LIKE', actorId: userId, postId },
+  });
+  return ...
+}
+
+// toggleLike - like
+// Check existing before creating
+const existingNotif = await this.prisma.notification.findFirst({
+  where: { type: 'LIKE', actorId: userId, postId },
+});
+if (!existingNotif) {
+  await this.prisma.notification.create({
+    data: { type: 'LIKE', userId: post.userId, actorId: userId, postId },
+  });
+}
+
+// repost - same pattern
+const existingNotif = await this.prisma.notification.findFirst({
+  where: { type: 'REPOST', actorId: userId, postId },
+});
+if (!existingNotif) {
+  await this.prisma.notification.create({ ... });
+}
+
+// unrepost - delete notification
+await this.prisma.notification.deleteMany({
+  where: { type: 'REPOST', actorId: userId, postId },
+});
+```
+
+### Files Modified
+- `server/src/posts/posts.service.ts`
+
+---
+
+## Common Patterns for Bug Fixes (Updated)
+
+### 1. Avatar Link Size Constraint Pattern
+```tsx
+// Always add w/h to Link wrapper to prevent stretching
+<Link href="..." className="shrink-0 w-10 h-10">
+  <img ... />
+</Link>
+```
+
+### 2. Stop Propagation Pattern
+```tsx
+// Links inside clickable containers need stopPropagation
+<article onClick={handleClick}>
+  <Link onClick={(e) => e.stopPropagation()} href="...">
+    ...
+  </Link>
+</article>
+```
+
+### 3. Shared Component Pattern
+```tsx
+// Instead of duplicating UI, use shared component
+// Thread page → <PostCard> (same as Home/Profile)
+// This ensures consistent icons, actions, behavior
+```
+
+### 4. Notification Deduplication Pattern
+```typescript
+// Before creating notification
+const existing = await prisma.notification.findFirst({
+  where: { type, actorId, postId },
+});
+if (!existing) {
+  await prisma.notification.create({ data: { type, actorId, postId, userId } });
+}
+
+// Before deleting, also delete notification
+await prisma.notification.deleteMany({
+  where: { type, actorId, postId },
+});
+```
+
+### 5. Functional Update Pattern for Stale State
+```tsx
+// Use functional updates to avoid stale closure
+setFn((prev) => newValue)  // NOT setFn(value)
+// React guarantees prev is always the latest state
+```
+
+### 6. Fragment Wrapper for JSX Siblings
+```tsx
+// If return has multiple root elements, wrap in fragment
+return (
+  <>
+    <article>...</article>
+    <Lightbox ... />
+  </>
+)
+```

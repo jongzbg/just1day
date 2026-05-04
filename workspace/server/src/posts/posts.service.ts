@@ -61,24 +61,40 @@ export class PostsService {
 
     if (existing) {
       await this.prisma.like.deleteMany({ where: { userId, postId } });
-      const post = await this.prisma.post.findUnique({ where: { id: postId }, select: { _count: { select: { likes: true } } } });
-      console.log('[toggleLike] After unlike, likesCount:', post?._count.likes);
-      return { isLiked: false, liked: false, likesCount: post?._count.likes ?? 0 };
+      await this.prisma.post.update({
+        where: { id: postId },
+        data: { likesCount: { decrement: 1 } },
+        select: { _count: { select: { likes: true } } },
+      });
+      // Delete LIKE notification when unliking
+      await this.prisma.notification.deleteMany({
+        where: { type: 'LIKE', actorId: userId, postId },
+      });
+      return { isLiked: false, liked: false, likesCount: (await this.prisma.post.findUnique({ where: { id: postId }, select: { _count: { select: { likes: true } } } }))?._count.likes ?? 0 };
     }
 
     await this.prisma.like.create({ data: { userId, postId } });
     console.log('[toggleLike] Like created');
 
-    // Create notification
+    // Create notification - only if not already exists
     const post = await this.prisma.post.findUnique({ where: { id: postId }, select: { userId: true } });
     if (post && post.userId !== userId) {
-      await this.prisma.notification.create({
-        data: { type: 'LIKE', userId: post.userId, actorId: userId, postId },
+      const existingNotif = await this.prisma.notification.findFirst({
+        where: { type: 'LIKE', actorId: userId, postId },
       });
+      if (!existingNotif) {
+        await this.prisma.notification.create({
+          data: { type: 'LIKE', userId: post.userId, actorId: userId, postId },
+        });
+      }
     }
 
-    const updated = await this.prisma.post.findUnique({ where: { id: postId }, select: { _count: { select: { likes: true } } } });
-    return { isLiked: true, liked: true, likesCount: updated?._count.likes ?? 0 };
+    const updated = await this.prisma.post.update({
+      where: { id: postId },
+      data: { likesCount: { increment: 1 } },
+      select: { _count: { select: { likes: true } } },
+    });
+    return { isLiked: true, liked: true, likesCount: updated._count.likes };
   }
 
   async repost(userId: string, postId: string) {
@@ -92,16 +108,17 @@ export class PostsService {
 
     await this.prisma.repost.create({ data: { userId, postId } });
 
-    // Create notification
+    // Create notification - only if not already exists
     const post = await this.prisma.post.findUnique({ where: { id: postId }, select: { userId: true } });
-    console.log('[repost] post.userId:', post?.userId, 'userId:', userId);
     if (post && post.userId !== userId) {
-      const notif = await this.prisma.notification.create({
-        data: { type: 'REPOST', userId: post.userId, actorId: userId, postId },
+      const existingNotif = await this.prisma.notification.findFirst({
+        where: { type: 'REPOST', actorId: userId, postId },
       });
-      console.log('[repost] Notification created:', notif.id, 'for userId:', post.userId);
-    } else {
-      console.log('[repost] No notification created - same user or post not found');
+      if (!existingNotif) {
+        await this.prisma.notification.create({
+          data: { type: 'REPOST', userId: post.userId, actorId: userId, postId },
+        });
+      }
     }
 
     const updated = await this.prisma.post.findUnique({ where: { id: postId }, select: { _count: { select: { reposts: true } } } });
@@ -110,6 +127,10 @@ export class PostsService {
 
   async unrepost(userId: string, postId: string) {
     await this.prisma.repost.deleteMany({ where: { userId, postId } });
+    // Delete REPOST notification when un-reposting
+    await this.prisma.notification.deleteMany({
+      where: { type: 'REPOST', actorId: userId, postId },
+    });
     const post = await this.prisma.post.findUnique({ where: { id: postId }, select: { _count: { select: { reposts: true } } } });
     return { isReposted: false, success: true, repostsCount: post?._count.reposts ?? 0 };
   }
@@ -485,8 +506,8 @@ export class PostsService {
   async getComments(postId: string, cursor?: string) {
     const take = 20;
     const where = cursor
-      ? { postId, parentId: null, createdAt: { lt: new Date(cursor) } }
-      : { postId, parentId: null };
+      ? { parentId: postId, deletedAt: null, createdAt: { lt: new Date(cursor) } }
+      : { parentId: postId, deletedAt: null };
 
     const comments = await this.prisma.post.findMany({
       where,
