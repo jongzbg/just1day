@@ -53,11 +53,10 @@ export class UploadService {
       .webp({ quality: 85 })
       .toFile(`${base}-full.webp`);
 
-    const host = `http://localhost:3001`;
     return {
-      thumb: `${host}/uploads/avatars/${uuid}-thumb.webp`,
-      medium: `${host}/uploads/avatars/${uuid}-medium.webp`,
-      full: `${host}/uploads/avatars/${uuid}-full.webp`,
+      thumb: `/uploads/avatars/${uuid}-thumb.webp`,
+      medium: `/uploads/avatars/${uuid}-medium.webp`,
+      full: `/uploads/avatars/${uuid}-full.webp`,
     };
   }
 

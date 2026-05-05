@@ -146,6 +146,11 @@ export class UsersService {
       },
     });
 
+    // Create notification
+    await this.prisma.notification.create({
+      data: { type: 'FOLLOW', userId: followingId, actorId: followerId },
+    });
+
     return { success: true, message: 'Followed successfully' };
   }
 
@@ -158,6 +163,94 @@ export class UsersService {
     });
 
     return { success: true, message: 'Unfollowed successfully' };
+  }
+
+  async getFollowers(username: string, currentUserId?: string) {
+    const user = await this.prisma.user.findUnique({ where: { username } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const followers = await this.prisma.follow.findMany({
+      where: { followingId: user.id },
+      include: {
+        follower: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+            avatarUrl: true,
+            bio: true,
+            _count: { select: { followers: true, following: true, posts: true } },
+          },
+        },
+      },
+    });
+
+    const users = followers.map(f => f.follower);
+
+    // Check if current user follows each user
+    let followingMap = new Map<string, boolean>();
+    if (currentUserId) {
+      const follows = await this.prisma.follow.findMany({
+        where: {
+          followerId: currentUserId,
+          followingId: { in: users.map(u => u.id) },
+        },
+        select: { followingId: true },
+      });
+      follows.forEach(f => followingMap.set(f.followingId, true));
+    }
+
+    return users.map(u => ({
+      ...u,
+      isFollowing: followingMap.get(u.id) || false,
+      followersCount: u._count.followers,
+      followingCount: u._count.following,
+      postsCount: u._count.posts,
+    }));
+  }
+
+  async getFollowing(username: string, currentUserId?: string) {
+    const user = await this.prisma.user.findUnique({ where: { username } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const following = await this.prisma.follow.findMany({
+      where: { followerId: user.id },
+      include: {
+        following: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+            avatarUrl: true,
+            bio: true,
+            _count: { select: { followers: true, following: true, posts: true } },
+          },
+        },
+      },
+    });
+
+    const users = following.map(f => f.following);
+
+    // Check if current user follows each user
+    let followingMap = new Map<string, boolean>();
+    if (currentUserId) {
+      const follows = await this.prisma.follow.findMany({
+        where: {
+          followerId: currentUserId,
+          followingId: { in: users.map(u => u.id) },
+        },
+        select: { followingId: true },
+      });
+      follows.forEach(f => followingMap.set(f.followingId, true));
+    }
+
+    return users.map(u => ({
+      ...u,
+      isFollowing: followingMap.get(u.id) || false,
+      followersCount: u._count.followers,
+      followingCount: u._count.following,
+      postsCount: u._count.posts,
+    }));
   }
 
   async getTopCreators(limit: number = 10, _currentUserId?: string) {

@@ -237,6 +237,28 @@ Response: { success: true }
 
 ---
 
+## Hashtags
+
+### Get Posts by Hashtag
+```
+GET /hashtags/:tag/posts?type=popular|latest|following
+Headers: Authorization: Bearer ***
+Response: Post[] with { isLiked, isReposted, likesCount, repostsCount, commentsCount }
+```
+**Tab sorting:**
+- `popular` → ordered by `likesCount DESC`
+- `latest` → ordered by `createdAt DESC`
+- `following` → only posts from followed users, ordered by `createdAt DESC`
+
+### Get Trending Hashtags
+```
+GET /hashtags/trending
+Response: [{ tag: string, postsCount: number }]
+```
+Returns top 5 hashtags from posts in the last 24 hours.
+
+---
+
 ## Response Shapes
 
 ### Post Object

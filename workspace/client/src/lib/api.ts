@@ -35,6 +35,8 @@ export const userApi = {
   updateProfile: (data: any) => api.patch('/users/me', data),
   follow: (userId: string) => api.post(`/users/${userId}/follow`),
   unfollow: (userId: string) => api.delete(`/users/${userId}/follow`),
+  getFollowers: (username: string) => api.get(`/users/${username}/followers`),
+  getFollowing: (username: string) => api.get(`/users/${username}/following`),
   getTopCreators: () => api.get('/users/top/creators'),
   getMostLiked: () => api.get('/users/most-likes'),
 }
@@ -56,8 +58,17 @@ export const uploadApi = {
   },
 }
 
+// Hashtag endpoints
+export const hashtagApi = {
+  getPosts: (tag: string, type: 'popular' | 'latest' | 'following' = 'latest') =>
+    api.get(`/hashtags/${encodeURIComponent(tag)}/posts`, { params: { type } }),
+  getTrending: () => api.get('/hashtags/trending'),
+}
+
 // Post endpoints
 export const postApi = {
+  getHashtagPosts: (tag: string, type: 'popular' | 'latest' | 'following') =>
+    api.get(`/hashtags/${encodeURIComponent(tag)}/posts`, { params: { type } }),
   getFeed: (cursor?: string) => api.get('/posts/feed', { params: { cursor } }),
   getFollowingFeed: (cursor?: string) => api.get('/posts/following-feed', { params: { cursor } }),
   getUserPosts: (username: string, cursor?: string) => api.get(`/posts/user/${username}`, { params: { cursor } }),
@@ -86,4 +97,21 @@ export const postApi = {
   getThread: (postId: string) => api.get(`/posts/${postId}/thread`),
   createReply: (postId: string, content: string) =>
     api.post(`/posts/${postId}/reply`, { content }),
+}
+
+// Chat endpoints
+export const chatApi = {
+  getConversations: () => api.get('/conversations'),
+  createConversation: (otherUserId: string) =>
+    api.post('/conversations', { otherUserId }),
+  getConversation: (conversationId: string) =>
+    api.get(`/conversations/${conversationId}`),
+  getMessages: (conversationId: string, cursor?: string, limit = 20) =>
+    api.get(`/conversations/${conversationId}/messages`, { params: { cursor, limit } }),
+  sendMessage: (conversationId: string, data: { content?: string; mediaUrl?: string; clientId?: string }) =>
+    api.post(`/conversations/${conversationId}/messages`, data),
+  markAsRead: (conversationId: string) =>
+    api.post(`/conversations/${conversationId}/read`),
+  getUnreadCount: (conversationId: string) =>
+    api.get(`/conversations/${conversationId}/unread-count`),
 }

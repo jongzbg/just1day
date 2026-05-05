@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from 'react'
 
 interface ProfileHeaderProps {
   user: {
+    id: string
     name: string
     username: string
     bio: string
@@ -21,9 +22,12 @@ interface ProfileHeaderProps {
   }
   isOwnProfile?: boolean
   onFollow?: () => void
+  onMessage?: () => void
+  onFollowersClick?: () => void
+  onFollowingClick?: () => void
 }
 
-export default function ProfileHeader({ user, isOwnProfile = false, onFollow }: ProfileHeaderProps) {
+export default function ProfileHeader({ user, isOwnProfile = false, onFollow, onMessage, onFollowersClick, onFollowingClick }: ProfileHeaderProps) {
   const [avatarModalOpen, setAvatarModalOpen] = useState(false)
 
   return (
@@ -63,16 +67,29 @@ export default function ProfileHeader({ user, isOwnProfile = false, onFollow }: 
               Edit Profile
             </Link>
           ) : (
-            <button
-              onClick={() => onFollow?.()}
-              className={`mb-4 px-6 py-2 font-bold rounded-full transition-colors ${
-                user.isFollowing
-                  ? 'border border-border text-text-primary hover:bg-red-500/10 hover:border-red-500 hover:text-red-500'
-                  : 'bg-primary text-white hover:opacity-90'
-              }`}
-            >
-              {user.isFollowing ? 'Following' : 'Follow'}
-            </button>
+            <div className="mb-4 flex items-center gap-2">
+              <button
+                onClick={() => onMessage?.()}
+                className="w-10 h-10 flex items-center justify-center rounded-full border border-border text-text-primary hover:bg-surface-elevated transition-colors"
+              >
+                <span
+                  className="material-symbols-outlined"
+                  style={{ fontVariationSettings: "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+                >
+                  mail
+                </span>
+              </button>
+              <button
+                onClick={() => onFollow?.()}
+                className={`px-6 py-2 font-bold rounded-full transition-colors ${
+                  user.isFollowing
+                    ? 'border border-border text-text-primary hover:bg-red-500/10 hover:border-red-500 hover:text-red-500'
+                    : 'bg-primary text-white hover:opacity-90'
+                }`}
+              >
+                {user.isFollowing ? 'Following' : 'Follow'}
+              </button>
+            </div>
           )}
         </div>
         <div className="px-4 mt-4 space-y-3">
@@ -100,14 +117,14 @@ export default function ProfileHeader({ user, isOwnProfile = false, onFollow }: 
             </div>
           </div>
           <div className="flex gap-5 pb-4">
-            <div className="hover:underline cursor-pointer">
+            <button onClick={onFollowingClick} className="hover:underline cursor-pointer text-left">
               <span className="font-bold text-text-primary">{user.following.toLocaleString()}</span>
               <span className="text-text-muted"> Following</span>
-            </div>
-            <div className="hover:underline cursor-pointer">
+            </button>
+            <button onClick={onFollowersClick} className="hover:underline cursor-pointer text-left">
               <span className="font-bold text-text-primary">{user.followers.toLocaleString()}</span>
               <span className="text-text-muted"> Followers</span>
-            </div>
+            </button>
             <div className="hover:underline cursor-pointer">
               <span className="font-bold text-text-primary">{user.likes.toLocaleString()}</span>
               <span className="text-text-muted"> Likes</span>

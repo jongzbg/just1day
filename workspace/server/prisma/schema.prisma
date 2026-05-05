@@ -33,6 +33,10 @@ model User {
   followers    Follow[] @relation("Following")
   following    Follow[] @relation("Follower")
   comments     Comment[]
+  conversations ConversationParticipant[]
+  sentMessages  Message[]
+  notifications  Notification[] @relation("Notifications")
+  notificationActors Notification[] @relation("NotificationActor")
 
   @@map("Users")
 }
@@ -60,6 +64,7 @@ model Post {
   likes     Like[]
   reposts   Repost[]
   comments  Comment[]
+  notifications Notification[]
 
   @@index([userId])
   @@index([createdAt])
@@ -129,3 +134,98 @@ model Comment {
   @@index([postId])
   @@map("comments")
 }
+
+// ============================================================
+// Chat / Messaging Models
+// ============================================================
+
+// Conversation — a chat thread (1:1 or group)
+model Conversation {
+  id           String    @id @default(cuid())
+  isGroup      Boolean   @default(false)
+  lastMessageAt DateTime @default(now())
+  expiresAt    DateTime  // Auto-delete after 24h of inactivity
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  // Unique key for 1:1 conversations (sorted userId pair)
+  uniqueUserPair String? @unique
+
+  @@index([lastMessageAt(sort: Desc)])
+  @@index([expiresAt])
+  @@map("Conversations")
+}
+
+// ConversationParticipant — join table with read status
+model ConversationParticipant {
+  conversationId String
+  userId         String
+  lastReadAt     DateTime?
+  joinedAt       DateTime  @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([userId])
+  @@index([lastReadAt])
+  @@map("ConversationParticipants")
+}
+
+// Message — ephemeral chat message (24h lifecycle)
+model Message {
+  id             String    @id @default(cuid())
+  clientId      String?   // For idempotency — client-generated UUID
+  conversationId String
+  senderId      String
+  content       String?
+  mediaUrl      String?
+  createdAt     DateTime  @default(now())
+  expiresAt     DateTime  // Auto-delete after 24h
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId])
+  @@index([conversationId, createdAt(sort: Desc)])
+  @@index([expiresAt])
+  @@index([senderId])
+  @@map("Messages")
+}
+
+// ============================================================
+// Notification Model
+// ============================================================
+
+enum NotificationType {
+  LIKE
+  COMMENT
+  REPOST
+  QUOTE
+  MESSAGE
+  FOLLOW
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  type        NotificationType
+  userId      String           // Recipient
+  actorId     String           // Who triggered the notification
+  postId      String?          // Related post (if applicable)
+  messageId   String?         // Related message (if applicable)
+  conversationId String?       // Related conversation (if applicable)
+  isRead      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  user      User      @relation("Notifications", fields: [userId], references: [id], onDelete: Cascade)
+  actor     User      @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+  post      Post?     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("Notifications")
+}
+

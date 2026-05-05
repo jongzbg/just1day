@@ -159,20 +159,6 @@ export default function LoginPage() {
             <a className="text-primary hover:underline" href="#">Privacy Policy</a>.
           </p>
         </div>
-
-        {/* Feature cards */}
-        <div className="mt-4 grid grid-cols-2 gap-4">
-          <div className="bg-surface-elevated border border-border rounded-xl p-4 flex flex-col gap-2">
-            <span className="material-symbols-outlined text-primary">auto_graph</span>
-            <span className="text-sm font-bold text-text-primary">Live Trends</span>
-            <p className="text-xs text-text-muted">Real-time algorithmic updates from the tech core.</p>
-          </div>
-          <div className="bg-surface-elevated border border-border rounded-xl p-4 flex flex-col gap-2">
-            <span className="material-symbols-outlined text-primary">lock</span>
-            <span className="text-sm font-bold text-text-primary">Encryption</span>
-            <p className="text-xs text-text-muted">End-to-end sovereignty over your data streams.</p>
-          </div>
-        </div>
       </section>
 
       {/* Footer */}

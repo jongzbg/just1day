@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import MainLayout from '@/components/layout/MainLayout'
 import ProfileHeader from '@/components/profile/ProfileHeader'
+import FollowListModal from '@/components/profile/FollowListModal'
 import PostComposer from '@/components/posts/PostComposer'
 import PostCard from '@/components/posts/PostCard'
 import QuoteModal from '@/components/posts/QuoteModal'
+import CommentModal from '@/components/posts/CommentModal'
 import { ProfileHeaderSkeleton, PostComposerSkeleton, PostSkeleton } from '@/components/Skeleton'
 import { userApi, postApi, authApi } from '@/lib/api'
 import { chatApi } from '@/lib/chatApi'
@@ -84,6 +86,8 @@ export default function ProfilePage() {
     return 'posts'
   })
   const [quotePost, setQuotePost] = useState<PostData | null>(null)
+  const [commentPost, setCommentPost] = useState<any>(null)
+  const [followListTab, setFollowListTab] = useState<'followers' | 'following' | null>(null)
 
   // ── Load profile on mount ────────────────────────────────────────────────
   useEffect(() => {
@@ -344,7 +348,9 @@ export default function ProfilePage() {
   }
 
   const isOwnProfile = currentUserId === profile.id
-  const currentPosts = activeTab === 'posts' ? posts : likes
+  const currentPosts = (activeTab === 'posts' ? posts : likes).slice().sort((a, b) =>
+    (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0)
+  )
 
   const mapPost = (post: PostData) => {
     const avatar = post.user.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${post.user.username}`
@@ -388,6 +394,10 @@ export default function ProfilePage() {
       .catch(() => {})
   }
 
+  const handleFollowersClick = () => setFollowListTab('followers')
+  const handleFollowingClick = () => setFollowListTab('following')
+  const handleFollowListClose = () => setFollowListTab(null)
+
   return (
     <MainLayout>
       <ProfileHeader
@@ -410,6 +420,8 @@ export default function ProfilePage() {
         isOwnProfile={isOwnProfile}
         onFollow={handleFollow}
         onMessage={handleMessage}
+        onFollowersClick={handleFollowersClick}
+        onFollowingClick={handleFollowingClick}
       />
 
       {/* Tabs */}
@@ -450,7 +462,10 @@ export default function ProfilePage() {
               onDelete={handleDelete}
               onPin={handlePin}
               onUnpin={handleUnpin}
-              currentUsername={currentUserId ?? undefined}
+              onComment={setCommentPost}
+              currentUsername={username}
+              showPinButton={isOwnProfile && activeTab === 'posts'}
+              showPinBadge={isOwnProfile && activeTab === 'posts'}
             />
           ))
         )}
@@ -470,6 +485,53 @@ export default function ProfilePage() {
           }}
           onSubmit={handleQuoteSubmit}
           onClose={() => setQuotePost(null)}
+        />
+      )}
+
+      {commentPost && currentUserId && (
+        <CommentModal
+          post={{
+            id: commentPost.id,
+            content: commentPost.content,
+            user: {
+              id: commentPost.user.id,
+              username: commentPost.user.username,
+              displayName: commentPost.user.displayName,
+              avatarUrl: commentPost.user.avatarUrl,
+            },
+            avatarUrl: commentPost.user.avatarUrl,
+          }}
+          onClose={() => setCommentPost(null)}
+          onCommentAdded={() => {
+            // Refresh the post's comment count in both tabs
+            postApi.getUserPosts(username).then((res) => setPosts(res.data.posts || []))
+            postApi.getUserLikedPosts(username).then((res) => setLikes(res.data.posts || []))
+          }}
+          onCommentDeleted={() => {
+            // Refresh the post's comment count in both tabs
+            postApi.getUserPosts(username).then((res) => setPosts(res.data.posts || []))
+            postApi.getUserLikedPosts(username).then((res) => setLikes(res.data.posts || []))
+          }}
+          currentUser={{
+            id: currentUserId,
+            username: username,
+            displayName: profile.displayName || profile.name,
+            avatarUrl: profile.avatarUrl,
+          }}
+        />
+      )}
+
+      {followListTab && profile && (
+        <FollowListModal
+          username={profile.username}
+          initialTab={followListTab}
+          currentUserId={currentUserId || ''}
+          onClose={handleFollowListClose}
+          onFollowChanged={() => {
+            userApi.getProfile(username).then(res => {
+              setProfile({ ...profile, ...res.data, followersCount: res.data.followersCount, followingCount: res.data.followingCount, isFollowing: res.data.isFollowing })
+            })
+          }}
         />
       )}
     </MainLayout>

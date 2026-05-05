@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from 'react'
 interface PostDropdownProps {
   postId: string
   isPinned: boolean
+  showPinButton?: boolean
   onDelete: (postId: string) => void
   onPin: (postId: string) => void
   onUnpin: (postId: string) => void
@@ -14,6 +15,7 @@ interface PostDropdownProps {
 export default function PostDropdown({
   postId,
   isPinned,
+  showPinButton = false,
   onDelete,
   onPin,
   onUnpin,
@@ -121,15 +123,17 @@ export default function PostDropdown({
             <span className="material-symbols-outlined text-red-500">delete</span>
             <span className="text-text-primary font-medium">ลบ</span>
           </button>
-          <button
-            onClick={handlePin}
-            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#3F3F3F]/30 transition-colors text-left"
-          >
-            <span className="material-symbols-outlined text-[#1D9BF0]">push_pin</span>
-            <span className="text-text-primary font-medium">
-              {isPinned ? 'เลิกปักหมุด' : 'ปักหมุด'}
-            </span>
-          </button>
+          {showPinButton && (
+            <button
+              onClick={handlePin}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#3F3F3F]/30 transition-colors text-left"
+            >
+              <span className="material-symbols-outlined text-[#1D9BF0]">push_pin</span>
+              <span className="text-text-primary font-medium">
+                {isPinned ? 'เลิกปักหมุด' : 'ปักหมุด'}
+              </span>
+            </button>
+          )}
         </>
       )}
     </div>

@@ -13,6 +13,7 @@ export default function PostComposer({ onPostCreated, avatarUrl, username }: Pos
   const [content, setContent] = useState('')
   const [mediaFiles, setMediaFiles] = useState<{ url: string; preview: string }[]>([])
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -20,8 +21,17 @@ export default function PostComposer({ onPostCreated, avatarUrl, username }: Pos
     avatarUrl || (username ? `https://api.dicebear.com/7.x/identicon/svg?seed=${username}` : '')
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUploadError(null) // clear previous error
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
+
+    // Prevent selecting more than 4 total
+    const MAX_MEDIA = 4
+    if (mediaFiles.length + files.length > MAX_MEDIA) {
+      setUploadError(`โปรดเลือกรูปภาพ วิดีโอ สูงสุด ${MAX_MEDIA} รายการ`)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
 
     setUploading(true)
     const uploaded: { url: string; preview: string }[] = []
@@ -33,7 +43,13 @@ export default function PostComposer({ onPostCreated, avatarUrl, username }: Pos
         uploaded.push({ url: res.data.url, preview })
       }
       setMediaFiles((prev) => [...prev, ...uploaded].slice(0, 4)) // max 4 images
-    } catch (err) {
+    } catch (err: any) {
+      const status = err?.response?.status
+      if (status === 413) {
+        setUploadError('ไฟล์มีขนาดใหญ่เกิน 10MB กรุณาเลือกไฟล์ที่เล็กกว่า')
+      } else {
+        setUploadError('อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่')
+      }
       console.error('Failed to upload image:', err)
     } finally {
       setUploading(false)
@@ -61,6 +77,7 @@ export default function PostComposer({ onPostCreated, avatarUrl, username }: Pos
       mediaFiles.forEach((m) => URL.revokeObjectURL(m.preview))
       setMediaFiles([])
       onPostCreated?.()
+      window.dispatchEvent(new CustomEvent('nexus:post-created'))
     } catch (err) {
       console.error('Failed to create post:', err)
     } finally {
@@ -85,7 +102,47 @@ export default function PostComposer({ onPostCreated, avatarUrl, username }: Pos
 
         {/* Media preview */}
         {mediaFiles.length > 0 && (
-          <div className={`grid gap-2 mt-2 ${
+          <>
+            {/* 3-image special layout: 1 large left + 2 stacked right */}
+            {mediaFiles.length === 3 ? (
+              <div className="flex gap-2 mt-2 h-64">
+                {/* Left: big image */}
+                <div className="relative flex-1 rounded-xl overflow-hidden bg-surface-base border border-border min-w-0">
+                  {mediaFiles[0].url.match(/\.(mp4|webm|mov)$/i) ? (
+                    <video src={mediaFiles[0].preview} controls className="w-full h-full object-cover" />
+                  ) : (
+                    <img src={mediaFiles[0].preview} alt="" className="w-full h-full object-cover" />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeMedia(0)}
+                    className="absolute top-1 right-1 w-6 h-6 bg-black/70 hover:bg-black rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
+                {/* Right: 2 stacked */}
+                <div className="flex-1 flex flex-col gap-2 min-w-0">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="relative flex-1 rounded-xl overflow-hidden bg-surface-base border border-border min-h-0">
+                      {mediaFiles[i].url.match(/\.(mp4|webm|mov)$/i) ? (
+                        <video src={mediaFiles[i].preview} controls className="w-full h-full object-cover" />
+                      ) : (
+                        <img src={mediaFiles[i].preview} alt="" className="w-full h-full object-cover" />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeMedia(i)}
+                        className="absolute top-1 right-1 w-6 h-6 bg-black/70 hover:bg-black rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className={`grid gap-2 mt-2 ${
             mediaFiles.length === 1 ? 'grid-cols-1' :
             mediaFiles.length === 2 ? 'grid-cols-2' :
             mediaFiles.length >= 3 ? 'grid-cols-2' : ''
@@ -106,6 +163,16 @@ export default function PostComposer({ onPostCreated, avatarUrl, username }: Pos
                 </button>
               </div>
             ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Upload error */}
+        {uploadError && (
+          <div className="mt-2 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm flex items-center gap-2">
+            <span className="material-symbols-outlined text-base">error</span>
+            {uploadError}
           </div>
         )}
 

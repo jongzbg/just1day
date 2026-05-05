@@ -11,6 +11,9 @@ client/src/app/
 │   └── page.tsx               # For You feed
 ├── following/
 │   └── page.tsx               # Following feed
+├── hashtag/
+│   └── [tag]/
+│       └── page.tsx           # Hashtag exploration (Popular/Latest/Following tabs)
 ├── posts/
 │   └── [id]/
 │       └── page.tsx           # Post detail + thread
@@ -34,6 +37,13 @@ client/src/app/
 - Same UI as home page
 - Shows only last 24 hours
 
+### Hashtag (`/hashtag/:tag`)
+- Click any `#hashtag` in post content → navigates here
+- 3 tabs: Popular (likes sort), Latest (time sort), Following (followed users only)
+- URL: `/hashtag/กินเหล้า?type=popular`
+- Real-time: trending hashtags in RightSidebar refresh on new post creation
+- Empty state if no posts found
+
 ### Post Detail (`/posts/:id`)
 - Single post with full content
 - Thread replies below
@@ -55,6 +65,15 @@ client/src/app/
 - Avatar: POST `/upload/avatar` → Sharp processes 3 WebP sizes → saves medium URL
 - Banner: POST `/upload/image` → saves raw file URL
 - Save button disabled during upload
+
+## Custom Events (Real-time Updates)
+
+Components communicate via `window.dispatchEvent`:
+
+| Event                    | Trigger                          | Listener                |
+|--------------------------|----------------------------------|------------------------|
+| `nexus:post-created`     | PostComposer success              | RightSidebar           |
+| `nexus:like-changed`     | handleLike (toggleLike API call) | LeftSidebar            |
 
 ## Components
 

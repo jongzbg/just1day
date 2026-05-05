@@ -154,12 +154,38 @@ export class PostsService {
     return newPost;
   }
 
-  async pinPost(_postId: string, _userId: string) {
-    return { success: true, message: 'Pin not available' };
+  async pinPost(postId: string, userId: string) {
+    const post = await this.prisma.post.findUnique({ where: { id: postId } });
+    if (!post || post.deletedAt) throw new NotFoundException('Post not found');
+    if (post.userId !== userId) throw new ForbiddenException();
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // Unpin any currently pinned post from this user
+      await tx.post.updateMany({
+        where: { userId, isPinned: true },
+        data: { isPinned: false },
+      });
+      // Pin the requested post
+      return tx.post.update({
+        where: { id: postId },
+        data: { isPinned: true },
+        select: { isPinned: true },
+      });
+    });
+    return { success: true, isPinned: updated.isPinned };
   }
 
-  async unpinPost(_postId: string, _userId: string) {
-    return { success: true, message: 'Unpin not available' };
+  async unpinPost(postId: string, userId: string) {
+    const post = await this.prisma.post.findUnique({ where: { id: postId } });
+    if (!post || post.deletedAt) throw new NotFoundException('Post not found');
+    if (post.userId !== userId) throw new ForbiddenException();
+
+    const updated = await this.prisma.post.update({
+      where: { id: postId },
+      data: { isPinned: false },
+      select: { isPinned: true },
+    });
+    return { success: true, isPinned: updated.isPinned };
   }
 
   async getFeed(userId: string, cursor?: string) {
@@ -207,6 +233,7 @@ export class PostsService {
         ...p,
         isLiked: likedSet.has(p.id),
         isReposted: repostedMap.has(p.id),
+        isPinned: p.isPinned,
         likesCount: p._count.likes,
         commentsCount: replyCountMap.get(p.id) ?? 0,
         repostsCount: p._count.reposts,
@@ -269,6 +296,7 @@ export class PostsService {
         ...p,
         isLiked: likedSet.has(p.id),
         isReposted: repostedMap.has(p.id),
+        isPinned: p.isPinned,
         likesCount: p._count.likes,
         commentsCount: replyCountMap.get(p.id) ?? 0,
         repostsCount: p._count.reposts,
@@ -371,6 +399,8 @@ export class PostsService {
       posts: page.map(p => ({
         ...p,
         isLiked: likedSet.has(p.id),
+        isReposted: repostedMap.has(p.id),
+        isPinned: p.isPinned,
         likesCount: p._count.likes,
         commentsCount: replyCountMap.get(p.id) ?? 0,
         repostsCount: p._count.reposts,
@@ -599,6 +629,7 @@ export class PostsService {
         repostsCount: post._count.reposts,
         isLiked,
         isReposted,
+        isPinned: post.isPinned,
       },
       replies: replies.map(r => ({
         ...r,

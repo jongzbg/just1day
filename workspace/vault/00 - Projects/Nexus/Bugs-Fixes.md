@@ -308,56 +308,6 @@ Always check `.gitignore` before committing. Sensitive files should never be tra
 
 ---
 
-## Common Patterns for Bug Fixes
-
-### 1. Guard Pattern
-```typescript
-// ALWAYS use guard when accessing req.user
-@UseGuards(JwtAuthGuard)
-@Get(':id')
-async getSomething(@Request() req) {
-  // req.user is guaranteed to exist
-}
-```
-
-### 2. Optimistic Update + Functional Update Pattern
-```typescript
-// 1. Optimistic update
-setFn(update)
-// 2. Call API
-const res = await api.toggleLike(postId)
-// 3. Functional sync — avoids stale closure
-setFn((prev) => sync(prev))
-```
-
-### 3. Filter After Confirm Pattern
-```typescript
-// Filter from list only AFTER server confirms the action
-if (activeTab === 'posts') {
-  // Don't filter — just sync
-  setPosts((prev) => sync(prev))
-} else {
-  // Filter only after server confirms
-  setLikes((prev) => sync(prev).filter((p) => !(p.id === postId && !res.data.isLiked)))
-}
-```
-
-### 4. Sharp Usage Pattern
-```typescript
-const sharp = require('sharp')  // NOT import
-await image.clone().resize(...).webp(...).toFile(path)
-```
-
-### 5. DTO Validation Pattern
-```typescript
-// For URL fields that might be localhost/relative
-@IsOptional()
-@IsString()  // Don't use @IsUrl() for user-provided URLs
-avatarUrl?: string
-```
-
----
-
 ## Bug 11: Notification Bell Showing MESSAGE Notifications
 
 **Date:** 2026-05-01
@@ -498,12 +448,217 @@ this.prisma.repost.findMany({
 })
 ```
 
-### Files Modified
-- `server/src/posts/posts.service.ts`
+---
+
+## Bug 15: FAB Chat Widget — Multiple Issues
+
+**Date:** 2026-05-05
+**Severity:** Medium
+**Component:** FAB Chat Widget + MessageBubble
 
 ---
 
-## Bug 15: LeftSidebar Avatar 404 - Wrong URL Replacement
+### Bug 15a: FAB Panel — "2 Topics" When Opening
+
+**Problem:**
+When FAB was clicked to open the chat panel, both the FAB button and the panel were visible simultaneously — appearing as "2 topics."
+
+**Root Cause:**
+`FABWidget.tsx` positioned the panel at `bottom-24` while the FAB button remained at `bottom-6`. Both were visible at the same time.
+
+**Solution:**
+- FAB button only shows when `panelState === 'closed'`
+- Panel positioned at `bottom-6` (same position as FAB button)
+- When panel opens, FAB button disappears; panel takes its place
+
+```tsx
+{panelState === 'closed' && <FAB button />}
+{panelState !== 'closed' && <Panel />}
+```
+
+**Files Modified:**
+- `client/src/components/chat/FABWidget.tsx`
+
+---
+
+### Bug 15b: FAB Panel — Header Disappeared in Empty State
+
+**Problem:**
+FAB panel showed "Chat + X" header only when there were conversations. When empty, the header (including the close button) disappeared — user couldn't close the panel.
+
+**Root Cause:**
+Header was inside the "has-conversations" return block, not in the outer wrapper.
+
+**Solution:**
+Restructured `FABConversationList.tsx` — header is always rendered outside the conditional content:
+
+```
+<div>                          ← always rendered
+  <Header>Chat [X]</Header>    ← always shown
+  {loading ? spinner : conversations.length === 0 ? empty : list}
+</div>
+```
+
+**Files Modified:**
+- `client/src/components/chat/FABConversationList.tsx`
+
+---
+
+### Bug 15c: FAB Panel — "Close" Button in Empty State
+
+**Problem:**
+Empty state in FAB panel had a "Close" button below "No conversations yet" text — confusing UX.
+
+**Solution:**
+Removed the Close button from empty state. Header "Chat + X" is always visible and serves as the close mechanism.
+
+**Files Modified:**
+- `client/src/components/chat/FABConversationList.tsx`
+
+---
+
+### Bug 15d: FAB Panel — "Support Chat" Should Be "Chat"
+
+**Problem:**
+Header text said "Support Chat" instead of "Chat."
+
+**Solution:**
+Changed all header text from "Support Chat" → "Chat."
+
+**Files Modified:**
+- `client/src/components/chat/FABWidget.tsx`
+- `client/src/components/chat/FABConversationList.tsx`
+
+---
+
+### Bug 15e: Message Bubble — Background Too Wide (break-words)
+
+**Problem:**
+Single-character messages like `"1"` were stretched to fill the entire bubble width.
+
+**Root Cause:**
+CSS `break-words` forces words to break and fill the entire line width.
+
+**Solution:**
+Replace `break-words` with `overflow-wrap: break-word`:
+
+```tsx
+// WRONG
+className="... break-words"
+
+// CORRECT
+style={{ overflowWrap: 'break-word' }}
+```
+
+`overflow-wrap: break-word` only breaks when necessary — short text stays compact.
+
+**Files Modified:**
+- `client/src/components/chat/MessageBubble.tsx`
+
+---
+
+### Bug 15f: Message Bubble — Trailing Space in Content
+
+**Problem:**
+First message showed trailing spaces like `"1     "` instead of `"1"`.
+
+**Root Cause:**
+Three contributing factors:
+1. `FABChatView.tsx` — optimistic message created without `.trim()` on content
+2. Backend `chat.service.ts` — stored content as-is without trimming
+3. `FABChatView.tsx` — `onMessage` handler didn't replace optimistic message with confirmed server message
+
+**Solution:**
+1. `FABChatView.tsx` — `content: content.trim()` when creating optimistic message
+2. `chat.service.ts` — `content: dto.content?.trim() ?? ''` when storing to DB
+3. `FABChatView.tsx` — `onMessage` handler now replaces optimistic with confirmed (match by `clientId`)
+
+**Files Modified:**
+- `client/src/components/chat/FABChatView.tsx`
+- `client/src/components/chat/MessageBubble.tsx`
+- `server/src/chat/chat.service.ts`
+
+---
+
+### Bug 15g: Message Bubble — Time Stretching Bubble Width
+
+**Problem:**
+When time was displayed below the bubble, the bubble's background stretched beyond the text content — even though the bubble itself had correct width.
+
+**Root Cause:**
+Time div was inside the `flex flex-col` bubble column. Even with `opacity: 0`, the element still occupied layout space, forcing the parent container to expand.
+
+**Solution:**
+Move time div OUTSIDE the bubble column — make it a sibling at the same level.
+
+```tsx
+<div className="flex gap-2 group">       {/* Root */}
+  <Avatar />
+  <BubbleColumn>                      {/* width: fit-content — ONLY bubble */}
+    <Bubble>text</Bubble>
+  </BubbleColumn>
+  <TimeDiv                           {/* SIBLING — opacity-0 → group-hover:opacity-100 */}
+    02:49 PM
+  </TimeDiv>
+</div>
+```
+
+Also: Remove time from `MessageBubble` for first message of each day (DateSeparator shows time instead).
+
+**Files Modified:**
+- `client/src/components/chat/MessageBubble.tsx`
+- `client/src/components/chat/MessageList.tsx`
+
+---
+
+### Bug 15h: Message Bubble — Time Layout
+
+**Problem:**
+Time div placed to the side of bubble instead of below.
+
+**Solution:**
+Time is now a sibling of the bubble column (not inside it). It appears below the bubble visually because it's aligned to the bottom with `flex flex-col justify-end`. Time only shows on hover via `opacity-0 group-hover:opacity-100`.
+
+**UX Summary:**
+- First message of the day → time shown in DateSeparator (e.g., "Today, 02:49 PM")
+- Subsequent messages → hover on bubble → time appears below bubble
+- Time never stretches bubble width (it's outside the bubble column)
+
+**Files Modified:**
+- `client/src/components/chat/MessageBubble.tsx`
+- `client/src/components/chat/MessageList.tsx`
+
+---
+
+### Bug 15i: Message Input — `mail` Icon Inconsistent with FAB
+
+**Problem:**
+Navbar message icon used `mail` icon, but FAB chat widget used `chat` icon — inconsistent.
+
+**Solution:**
+Changed Header message icon from `mail` to `chat` to match FAB.
+
+**Files Modified:**
+- `client/src/components/layout/Header.tsx`
+
+---
+
+### Bug 15j: MessageDropdown — "ยังไม่มีข้อความ" Should Be "No conversations yet"
+
+**Problem:**
+Empty state in MessageDropdown used Thai text with `chat_off` icon instead of matching FAB style.
+
+**Solution:**
+Changed to match FAB empty state:
+- Icon: `chat_off` → `chat`
+- Text: `ยังไม่มีข้อความ` → `No conversations yet`
+
+**Files Modified:**
+- `client/src/components/chat/MessageDropdown.tsx`
+
+---
+
+## Bug 16: LeftSidebar Avatar 404 — Wrong URL Replacement
 
 **Date:** 2026-05-01
 **Severity:** Medium
@@ -542,7 +697,7 @@ if (url && url.startsWith('/')) {
 
 ---
 
-## Bug 16: PostCard — Click on Image Goes to Profile Instead of Thread
+## Bug 17: PostCard — Click on Image Goes to Profile Instead of Thread
 
 **Date:** 2026-05-04
 **Severity:** High
@@ -580,7 +735,7 @@ Clicking on an image in a post went to the author's profile instead of the threa
 
 ---
 
-## Bug 17: parseContent — Missing @mention & External URL Detection
+## Bug 18: parseContent — Missing @mention & External URL Detection
 
 **Date:** 2026-05-04
 **Severity:** Medium
@@ -639,7 +794,7 @@ function parseContent(content: string): React.ReactNode[] {
 
 ---
 
-## Bug 18: Single Image — Lightbox Navigation Arrows Showing
+## Bug 19: Single Image — Lightbox Navigation Arrows Showing
 
 **Date:** 2026-05-04
 **Severity:** Low
@@ -671,7 +826,7 @@ Use `render.buttonPrev` and `render.buttonNext` props to conditionally hide arro
 
 ---
 
-## Bug 19: Thread Page — Icons Layout Different from Home
+## Bug 20: Thread Page — Icons Layout Different from Home
 
 **Date:** 2026-05-04
 **Severity:** Medium
@@ -714,7 +869,7 @@ Replaced inline article rendering with `<PostCard>` component:
 
 ---
 
-## Bug 20: Thread Page — Avatar Wrong in CommentModal
+## Bug 21: Thread Page — Avatar Wrong in CommentModal
 
 **Date:** 2026-05-04
 **Severity:** Medium
@@ -754,7 +909,7 @@ authApi.me().then((res) => {
 
 ---
 
-## Bug 21: Thread Page — Reply Input Avatar Wrong
+## Bug 22: Thread Page — Reply Input Avatar Wrong
 
 **Date:** 2026-05-04
 **Severity:** Low
@@ -781,7 +936,7 @@ Use `currentUserAvatar` with dicebear fallback:
 
 ---
 
-## Bug 22: PostActions — Icons Too Close to Edge
+## Bug 23: PostActions — Icons Too Close to Edge
 
 **Date:** 2026-05-04
 **Severity:** Low
@@ -806,7 +961,7 @@ Added `px-4` to PostActions container:
 
 ---
 
-## Bug 23: Like/Repost Creates Duplicate Notifications
+## Bug 24: Like/Repost Creates Duplicate Notifications
 
 **Date:** 2026-05-04
 **Severity:** High
@@ -862,9 +1017,104 @@ await this.prisma.notification.deleteMany({
 
 ---
 
-## Common Patterns for Bug Fixes (Updated)
+## Bug 25: FAB Chat — Unread Count Not Synced with Header Mail Icon
 
-### 1. Avatar Link Size Constraint Pattern
+**Date:** 2026-05-05
+**Severity:** High
+
+### Problem
+When clicking "mark as read" in MessageDropdown (header mail icon), the unread count in the header decreased correctly, but the FAB chat widget still showed the old unread count (did not decrease).
+
+### Root Cause
+**Two separate state sources** for the same unread count:
+
+| Component | State | Update Mechanism |
+|-----------|-------|-----------------|
+| Header (`messageUnreadCount`) | Local state in Header.tsx | Refetches `GET /conversations` on `messages_read` event |
+| FAB (`totalUnreadCount`) | State in FABChatContext | Fetches once on mount; decrements only if `activeConversationId` matches |
+
+The FAB's `messages_read` handler only decremented the count if the conversation was **currently open in FAB**.
+
+### Solution
+**Refetch unread counts from API** instead of trying to decrement locally:
+
+```typescript
+// FABChatContext.tsx - FIXED
+useEffect(() => {
+  function onMessagesRead() {
+    // Refetch conversations to get accurate unread counts
+    chatApi.getConversations().then(({ data }) => {
+      const conversations = (data as { conversations: Conversation[] })?.conversations || []
+      const total = conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0)
+      setTotalUnreadCount(total)
+    }).catch(() => {})
+  }
+
+  window.addEventListener('messages_read', onMessagesRead)
+  return () => window.removeEventListener('messages_read', onMessagesRead)
+}, [])
+```
+
+### Files Modified
+- `client/src/contexts/FABChatContext.tsx`
+
+### Key Insight
+**Never try to sync state by incrementing/decrementing** — always refetch from the source of truth. Local decrements are fragile because they can drift from the actual count due to:
+- Multiple read events
+- Read events from different sources (different tabs, FAB, header, messages page)
+- WebSocket reconnection
+
+---
+
+## Common Patterns for Bug Fixes
+
+### Pattern 1: Guard Pattern
+```typescript
+// ALWAYS use guard when accessing req.user
+@UseGuards(JwtAuthGuard)
+@Get(':id')
+async getSomething(@Request() req) {
+  // req.user is guaranteed to exist
+}
+```
+
+### Pattern 2: Functional Update + Optimistic UI
+```typescript
+// 1. Optimistic update
+setFn(update)
+// 2. Call API
+const res = await api.toggleLike(postId)
+// 3. Functional sync — avoids stale closure
+setFn((prev) => sync(prev))
+```
+
+### Pattern 3: Filter After Confirm
+```typescript
+// Filter from list only AFTER server confirms the action
+if (activeTab === 'posts') {
+  // Don't filter — just sync
+  setPosts((prev) => sync(prev))
+} else {
+  // Filter only after server confirms
+  setLikes((prev) => sync(prev).filter((p) => !(p.id === postId && !res.data.isLiked)))
+}
+```
+
+### Pattern 4: Sharp Usage
+```typescript
+const sharp = require('sharp')  // NOT import
+await image.clone().resize(...).webp(...).toFile(path)
+```
+
+### Pattern 5: DTO Validation
+```typescript
+// For URL fields that might be localhost/relative
+@IsOptional()
+@IsString()  // Don't use @IsUrl() for user-provided URLs
+avatarUrl?: string
+```
+
+### Pattern 6: Avatar Link Size Constraint
 ```tsx
 // Always add w/h to Link wrapper to prevent stretching
 <Link href="..." className="shrink-0 w-10 h-10">
@@ -872,7 +1122,7 @@ await this.prisma.notification.deleteMany({
 </Link>
 ```
 
-### 2. Stop Propagation Pattern
+### Pattern 7: Stop Propagation
 ```tsx
 // Links inside clickable containers need stopPropagation
 <article onClick={handleClick}>
@@ -882,14 +1132,7 @@ await this.prisma.notification.deleteMany({
 </article>
 ```
 
-### 3. Shared Component Pattern
-```tsx
-// Instead of duplicating UI, use shared component
-// Thread page → <PostCard> (same as Home/Profile)
-// This ensures consistent icons, actions, behavior
-```
-
-### 4. Notification Deduplication Pattern
+### Pattern 8: Notification Deduplication
 ```typescript
 // Before creating notification
 const existing = await prisma.notification.findFirst({
@@ -905,14 +1148,7 @@ await prisma.notification.deleteMany({
 });
 ```
 
-### 5. Functional Update Pattern for Stale State
-```tsx
-// Use functional updates to avoid stale closure
-setFn((prev) => newValue)  // NOT setFn(value)
-// React guarantees prev is always the latest state
-```
-
-### 6. Fragment Wrapper for JSX Siblings
+### Pattern 9: Fragment Wrapper for JSX Siblings
 ```tsx
 // If return has multiple root elements, wrap in fragment
 return (
@@ -921,4 +1157,315 @@ return (
     <Lightbox ... />
   </>
 )
+```
+
+### Pattern 10: Time Outside Bubble Column
+```tsx
+// WRONG — time inside flex-col stretches parent
+<div className="flex flex-col">
+  <Bubble />
+  <Time opacity-0 />   {/* occupies space even when hidden */}
+</div>
+
+// CORRECT — time as sibling, bubble column stays compact
+<div className="flex gap-2 group">
+  <BubbleColumn style={{ width: 'fit-content' }}>
+    <Bubble />
+  </BubbleColumn>
+  <Time opacity-0 group-hover:opacity-100 />  {/* sibling */}
+</div>
+```
+
+### Pattern 11: CSS overflow-wrap
+```tsx
+// WRONG — break-words stretches single chars to fill line
+className="... break-words"
+
+// CORRECT — break-word only breaks when necessary
+style={{ overflowWrap: 'break-word' }}
+```
+
+### Pattern 12: Header Always Visible
+```tsx
+// WRONG — header inside conditional
+{loading ? <Spinner /> : conversations.length > 0 ? (
+  <div>
+    <Header />   {/* only shown when has conversations */}
+    <List />
+  </div>
+) : <Empty />
+
+// CORRECT — header always rendered
+<div>
+  <Header />   {/* always shown */}
+  {loading ? <Spinner /> : conversations.length === 0 ? <Empty /> : <List />}
+</div>
+```
+
+### Pattern 13: Optimistic Message + Replacement
+```tsx
+// 1. Send with trim
+content: content.trim()
+
+// 2. Store in DB with trim
+content: dto.content?.trim() ?? ''
+
+// 3. Handler replaces optimistic with confirmed (match by clientId)
+if ('clientId' in message && message.clientId) {
+  const hasMatch = prev._localMessages.some(
+    (m) => 'clientId' in m && m.clientId === message.clientId
+  )
+  if (hasMatch) {
+    return { ...prev, _localMessages: prev._localMessages.map(
+      (m) => 'clientId' in m && m.clientId === message.clientId ? message : m
+    )}
+  }
+}
+```
+
+### Pattern 14: Shared Component Pattern
+```tsx
+// Instead of duplicating UI, use shared component
+// Thread page → <PostCard> (same as Home/Profile)
+// This ensures consistent icons, actions, behavior
+```
+
+---
+
+## Bug 25: Chat Bubble — Content Shows Extra Trailing Space
+
+**Date:** 2026-05-05
+**Severity:** Medium
+
+### Problem
+When typing "1" and sending, the chat bubble displayed "1     " (with trailing spaces) making the bubble wider than the text.
+
+### Root Cause
+**Three issues combined:**
+
+1. **Socket send used untrimmed content** — `sendMessage({ content })` sent the raw input instead of trimmed content. When server echoed back with `clientId`, the optimistic message was replaced with untrimmed server content.
+
+2. **CSS `wordBreak: 'break-word'`** — This forces single characters to stretch and fill the entire line width.
+
+3. **CSS `max-w-[70%]` on flex container** — The bubble column had `max-w-[70%] min-w-0` which stretched the bubble to fill available width.
+
+### Solution
+
+**1. Trim content before socket send:**
+```tsx
+// FABChatView.tsx - handleSend
+sendMessage({
+  conversationId: conversation.id,
+  content: content.trim(),  // ← trim before sending
+  clientId,
+})
+```
+
+**2. Remove `wordBreak: 'break-word'` from bubble:**
+```tsx
+// BEFORE
+style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}
+
+// AFTER
+style={{ overflowWrap: 'break-word' }}
+```
+
+**3. Use `width: fit-content` on bubble column:**
+```tsx
+// BEFORE
+<div className="flex flex-col gap-0.5 max-w-[70%] min-w-0">
+
+// AFTER
+<div className="flex flex-col gap-0.5" style={{ width: 'fit-content', minWidth: 0 }}>
+```
+
+### Files Modified
+- `client/src/components/chat/FABChatView.tsx`
+- `client/src/components/chat/MessageBubble.tsx`
+
+---
+
+## Bug 26: Chat Auto-Scroll — First Message Doesn't Scroll to Bottom
+
+**Date:** 2026-05-05
+**Severity:** Medium
+
+### Problem
+When sending the first message in a chat, the container didn't scroll down — the message appeared but the view didn't follow. Subsequent messages scrolled correctly.
+
+### Root Cause
+`scrollIntoView({ behavior: 'smooth' })` runs **before** the DOM has actually painted the new message element. React's `useEffect` fires after state update, but the browser layout calculation happens before paint.
+
+### Solution
+Use `requestAnimationFrame` to ensure DOM has painted before scrolling:
+
+```tsx
+// BEFORE
+useEffect(() => {
+  if (isAtBottomRef.current) {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+}, [messages])
+
+// AFTER
+useEffect(() => {
+  const el = containerRef.current
+  if (!el) return
+
+  const rafId = requestAnimationFrame(() => {
+    if (!el) return
+
+    if (isInitialMountRef.current) {
+      // Initial mount: scroll immediately (no smooth delay)
+      el.scrollTop = el.scrollHeight
+      isInitialMountRef.current = false
+    } else if (isAtBottomRef.current) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    }
+  })
+  return () => cancelAnimationFrame(rafId)
+}, [messages])
+```
+
+**Key changes:**
+- `requestAnimationFrame` defers scroll until after DOM paint
+- Separate handling for initial mount vs subsequent updates
+- Use `scrollTop = scrollHeight` for immediate scroll on first load
+- Use `scrollTo({ behavior: 'smooth' })` for subsequent messages
+
+### Files Modified
+- `client/src/components/chat/MessageList.tsx`
+
+### Key Insight
+**`requestAnimationFrame` is essential for DOM-dependent scroll operations.** Any time you need to scroll to something that was just added to the DOM, defer with `rAF` to ensure the browser has painted first.
+
+---
+
+## Bug 27: FAB Chat — Avatar Still Occupies Space When Hidden
+
+**Date:** 2026-05-05
+**Severity:** Low
+
+### Problem
+When `showAvatar={false}` was passed to hide avatars in FAB chat, messages were still offset from the edge as if an invisible avatar was taking up space.
+
+### Root Cause
+The avatar `<div className="w-8 flex-shrink-0">` was always rendered (just with conditional content), leaving a 32px gap regardless of whether `showAvatar` was true.
+
+### Solution
+Conditionally render the avatar container, not just the content:
+
+```tsx
+// BEFORE — div always rendered, content conditionally hidden
+<div className="w-8 flex-shrink-0">
+  {!isMine && showAvatar && <AvatarBlock />}
+</div>
+
+// AFTER — entire div conditionally rendered
+{!isMine && showAvatar && (
+  <div className="w-8 flex-shrink-0">
+    <AvatarBlock />
+  </div>
+)}
+```
+
+### Files Modified
+- `client/src/components/chat/MessageBubble.tsx`
+
+---
+
+## Bug 28: Chat Message Alignment — Flex Margin Compensation
+
+**Date:** 2026-05-05
+**Severity:** Low
+
+### Problem
+Message bubbles had `ml-10` (40px left margin) or `mr-10` (40px right margin) to compensate for avatar space, even when avatars were hidden.
+
+### Root Cause
+The margin compensation classes were applied regardless of whether `showAvatar` was true or false.
+
+### Solution
+Remove margin compensation — once avatar containers are conditionally rendered, no compensation is needed:
+
+```tsx
+// BEFORE — margin compensation for invisible avatars
+className={`flex gap-2 ${isMine ? 'flex-row-reverse' : ''} ${
+  !shouldShowAvatarFlag && isMine ? 'ml-10' : ''
+} ${!shouldShowAvatarFlag && !isMine ? 'mr-10' : ''}`}
+
+// AFTER — no compensation needed
+className={`flex gap-2 ${isMine ? 'flex-row-reverse' : ''}`}
+```
+
+### Files Modified
+- `client/src/components/chat/MessageList.tsx`
+
+---
+
+## Common Patterns for Chat Implementation
+
+### Pattern 15: rAF Auto-Scroll
+```tsx
+useEffect(() => {
+  const rafId = requestAnimationFrame(() => {
+    containerRef.current?.scrollTo({ top: containerRef.current.scrollHeight })
+  })
+  return () => cancelAnimationFrame(rafId)
+}, [messages])
+```
+
+### Pattern 16: Conditional Container Rendering
+```tsx
+// WRONG — container always exists
+<div className="w-8">{condition && <Content />}</div>
+
+// CORRECT — container only exists when needed
+{condition && <div className="w-8"><Content /></div>}
+```
+
+### Pattern 17: Flex Bubble Width
+```tsx
+// Bubble column should use fit-content to avoid stretching
+<div className="flex flex-col" style={{ width: 'fit-content', minWidth: 0 }}>
+  <Bubble />
+</div>
+```
+
+### Pattern 18: Socket Trim Before Send
+```tsx
+// Always trim content before sending via socket
+sendMessage({ content: content.trim(), clientId })
+// Backend should also trim: content: dto.content?.trim() ?? ''
+```
+
+### Pattern 19: Optimistic Replace by clientId
+```tsx
+// When server echoes back with clientId, replace optimistic message
+if ('clientId' in message && message.clientId) {
+  const hasMatch = messages.some(m =>
+    'clientId' in m && m.clientId === message.clientId
+  )
+  if (hasMatch) {
+    return messages.map(m =>
+      'clientId' in m && m.clientId === message.clientId ? message : m
+    )
+  }
+}
+```
+
+### Pattern 20: FAB vs Page Chat — Shared MessageList
+```tsx
+// Both FAB and /messages page use same MessageList component
+// FAB: showAvatar={false}, default padding
+// Page: showAvatar={false}, default padding
+// Just pass props to customize behavior
+<MessageList
+  messages={messages}
+  currentUserId={currentUser.id}
+  showAvatar={false}
+  // or
+  showAvatar={true}
+  className="pr-0"  // optional override
+/>
 ```

@@ -28,16 +28,18 @@ interface CommentModalProps {
   }
   onClose: () => void
   onCommentAdded: (comment: Comment) => void
+  onCommentDeleted: (commentId: string) => void
   currentUser: CommentUser
 }
 
-export default function CommentModal({ post, onClose, onCommentAdded, currentUser }: CommentModalProps) {
+export default function CommentModal({ post, onClose, onCommentAdded, onCommentDeleted, currentUser }: CommentModalProps) {
   const [comments, setComments] = useState<Comment[]>([])
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [cursor, setCursor] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(false)
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -51,6 +53,15 @@ export default function CommentModal({ post, onClose, onCommentAdded, currentUse
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [post.id])
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClick = () => setOpenDropdownId(null)
+    if (openDropdownId) {
+      document.addEventListener('click', handleClick)
+      return () => document.removeEventListener('click', handleClick)
+    }
+  }, [openDropdownId])
 
   // Auto-resize textarea
   useEffect(() => {
@@ -92,13 +103,25 @@ export default function CommentModal({ post, onClose, onCommentAdded, currentUse
     try {
       await postApi.deleteComment(commentId)
       setComments((prev) => prev.filter((c) => c.id !== commentId))
+      setOpenDropdownId(null)
+      onCommentDeleted(commentId)
     } catch {
       // silent
     }
   }
 
+  const canDelete = (comment: Comment) => {
+    return currentUser.id === comment.user.id || currentUser.id === post.user.id
+  }
+
   const avatarSrc = (url: string | null | undefined, username: string) =>
     url || `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`
+
+  const toggleDropdown = (e: React.MouseEvent, commentId: string) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setOpenDropdownId(openDropdownId === commentId ? null : commentId)
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
@@ -141,7 +164,7 @@ export default function CommentModal({ post, onClose, onCommentAdded, currentUse
             <div className="p-8 text-center text-text-muted text-sm">No comments yet. Be the first!</div>
           ) : (
             comments.map((comment) => (
-              <div key={comment.id} className="flex gap-3 px-4 py-3 relative hover:bg-white/[0.03] transition-colors">
+              <div key={comment.id} className="flex gap-3 px-4 py-3 relative hover:bg-white/[0.03] transition-colors group">
                 <img
                   src={avatarSrc(comment.user.avatarUrl, comment.user.username)}
                   alt={comment.user.displayName || comment.user.username}
@@ -158,14 +181,32 @@ export default function CommentModal({ post, onClose, onCommentAdded, currentUse
                   </div>
                   <p className="text-sm text-text-primary mt-1 break-words">{comment.content}</p>
                 </div>
-                {comment.user.id === currentUser.id && (
-                  <button
-                    className="absolute top-3 right-4 p-1 rounded text-text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
-                    onClick={() => handleDelete(comment.id)}
-                    title="Delete comment"
-                  >
-                    <X size={14} />
-                  </button>
+
+                {/* ... dropdown */}
+                {canDelete(comment) && (
+                  <div className="relative">
+                    <button
+                      className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-[#3F3F3F]/50 transition-colors opacity-0 group-hover:opacity-100"
+                      onClick={(e) => toggleDropdown(e, comment.id)}
+                    >
+                      <span className="material-symbols-outlined text-lg">more_horiz</span>
+                    </button>
+
+                    {openDropdownId === comment.id && (
+                      <div
+                        className="absolute right-0 top-8 w-52 bg-[#200D21] border border-[#3F3F3F] rounded-xl shadow-2xl z-50 overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={() => handleDelete(comment.id)}
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#3F3F3F]/30 transition-colors text-left"
+                        >
+                          <span className="material-symbols-outlined text-red-500">delete</span>
+                          <span className="text-text-primary font-medium">ลบ</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             ))

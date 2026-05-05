@@ -113,9 +113,13 @@ interface PostCardProps {
   /** Custom click handler. If not provided, PostCard navigates to /posts/:id */
   onClick?: (e: React.MouseEvent) => void
   currentUsername?: string
+  /** Show pin/unpin button in dropdown — only on profile page for own posts */
+  showPinButton?: boolean
+  /** Show 📌 badge — only on profile page */
+  showPinBadge?: boolean
 }
 
-export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onDelete, onPin, onUnpin, onComment, onClick, currentUsername }: PostCardProps) {
+export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onDelete, onPin, onUnpin, onComment, onClick, currentUsername, showPinButton = false, showPinBadge = false }: PostCardProps) {
   const liked = post.liked ?? false
   const reposted = post.reposted ?? false
   const isPinned = post.isPinned ?? false
@@ -220,6 +224,9 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
                   {post.user.name}
                 </span>
               </Link>
+              {showPinBadge && isPinned && (
+                <span className="text-[#1D9BF0] text-sm font-medium shrink-0" title="ปักหมุดแล้ว">📌</span>
+              )}
               <Link
                 href={`/profile/${post.user.username}`}
                 className="text-text-muted truncate hover:underline"
@@ -237,8 +244,8 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
               </Link>
             </div>
 
-            {/* ... dropdown — only for own posts */}
-            {isOwnPost && (
+            {/* ... dropdown — for own posts, or profile owner with pin */}
+            {(isOwnPost || showPinButton) && (
               <div ref={buttonRef} className="relative shrink-0">
                 <button
                   onClick={(e) => {
@@ -254,6 +261,7 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
                   <PostDropdown
                     postId={post.id}
                     isPinned={isPinned}
+                    showPinButton={showPinButton}
                     onDelete={onDelete ?? (() => {})}
                     onPin={onPin ?? (() => {})}
                     onUnpin={onUnpin ?? (() => {})}
@@ -311,8 +319,42 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
             </div>
           )}
 
-          {/* Gallery Grid — only when > 1 image */}
-          {mediaImages.length > 1 && (
+          {/* Gallery Grid — 3 images: 1 large left + 2 stacked right */}
+          {mediaImages.length === 3 && (
+            <div
+              className="block mt-3 rounded-2xl overflow-hidden border border-border cursor-pointer"
+              style={{ maxHeight: '400px' }}
+              onClick={handleClick}
+            >
+              <div className="flex gap-0.5" style={{ height: '400px' }}>
+                {/* Left: big image */}
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <img
+                    alt=""
+                    className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                    src={mediaImages[0]}
+                    onClick={openLightbox(0)}
+                  />
+                </div>
+                {/* Right: 2 stacked */}
+                <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="flex-1 overflow-hidden">
+                      <img
+                        alt=""
+                        className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                        src={mediaImages[i]}
+                        onClick={openLightbox(i)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Gallery Grid — 2 or 4+ images */}
+          {mediaImages.length !== 3 && mediaImages.length > 1 && (
             <div
               className="block mt-3 rounded-2xl overflow-hidden border border-border cursor-pointer"
               style={{ maxHeight: '400px' }}

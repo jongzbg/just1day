@@ -47,4 +47,16 @@ export class UsersController {
   async unfollow(@Param('id') id: string, @Request() req) {
     return this.usersService.unfollow(req.user.id, id);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':username/followers')
+  async getFollowers(@Param('username') username: string, @Request() req) {
+    return this.usersService.getFollowers(username, req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':username/following')
+  async getFollowing(@Param('username') username: string, @Request() req) {
+    return this.usersService.getFollowing(username, req.user.id);
+  }
 }

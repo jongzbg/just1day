@@ -5,7 +5,6 @@ import Header from './Header'
 import LeftSidebar from './LeftSidebar'
 import RightSidebar from './RightSidebar'
 import BottomNav from './BottomNav'
-import FAB from './FAB'
 
 interface MainLayoutProps {
   children: ReactNode
@@ -30,9 +29,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
         {/* Right Sidebar */}
         <RightSidebar />
       </main>
-
-      {/* FAB */}
-      <FAB />
 
       {/* Mobile Bottom Nav */}
       <BottomNav />

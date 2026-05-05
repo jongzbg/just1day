@@ -8,6 +8,7 @@ import PostCard from '@/components/posts/PostCard'
 import QuoteModal from '@/components/posts/QuoteModal'
 import CommentModal from '@/components/posts/CommentModal'
 import { authApi, postApi } from '@/lib/api'
+import { PostSkeleton } from '@/components/Skeleton'
 
 interface ApiPost {
   id: string
@@ -290,8 +291,8 @@ export default function HomePage() {
   if (loading) {
     return (
       <MainLayout>
-        <div className="flex items-center justify-center h-64">
-          <span className="text-text-muted">กำลังโหลด...</span>
+        <div className="divide-y divide-border">
+          {[1, 2, 3, 4, 5].map(i => <PostSkeleton key={i} />)}
         </div>
       </MainLayout>
     )
@@ -387,11 +388,20 @@ export default function HomePage() {
               )
             )
           }}
+          onCommentDeleted={() => {
+            setPosts((current) =>
+              current.map((p) =>
+                p.id === commentPost.id
+                  ? { ...p, commentsCount: Math.max(0, p.commentsCount - 1) }
+                  : p
+              )
+            )
+          }}
           currentUser={{
             id: currentUser.id,
             username: currentUser.username,
             displayName: '',
-            avatarUrl: null,
+            avatarUrl: currentUser.avatarUrl ?? null,
           }}
         />
       )}

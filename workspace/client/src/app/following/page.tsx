@@ -6,6 +6,7 @@ import MainLayout from '@/components/layout/MainLayout'
 import PostComposer from '@/components/posts/PostComposer'
 import PostCard from '@/components/posts/PostCard'
 import { postApi, authApi } from '@/lib/api'
+import { PostSkeleton } from '@/components/Skeleton'
 
 interface ApiPost {
   id: string
@@ -207,8 +208,8 @@ export default function FollowingPage() {
   if (loading) {
     return (
       <MainLayout>
-        <div className="flex items-center justify-center h-64">
-          <span className="text-text-muted">กำลังโหลด...</span>
+        <div className="divide-y divide-border">
+          {[1, 2, 3, 4, 5].map(i => <PostSkeleton key={i} />)}
         </div>
       </MainLayout>
     )

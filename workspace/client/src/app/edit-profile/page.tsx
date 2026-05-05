@@ -4,6 +4,7 @@ import MainLayout from '@/components/layout/MainLayout'
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { EditProfileSkeleton } from '@/components/Skeleton'
 
 interface UserProfile {
   id: string
@@ -23,6 +24,7 @@ export default function EditProfilePage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [uploadingBanner, setUploadingBanner] = useState(false)
   const [error, setError] = useState('')
+  const [uploadError, setUploadError] = useState('')
   const [username, setUsername] = useState('')
 
   const [displayName, setDisplayName] = useState('')
@@ -69,6 +71,7 @@ export default function EditProfilePage() {
 
   // ── Avatar upload ────────────────────────────────────────────────────────
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUploadError('')
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -87,12 +90,19 @@ export default function EditProfilePage() {
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       })
-      if (!res.ok) throw new Error('Upload failed')
+      if (!res.ok) {
+        if (res.status === 413) throw new Error('FILE_TOO_LARGE')
+        throw new Error('Upload failed')
+      }
       const data = await res.json()
       // Save the medium size as the user's avatarUrl
       setAvatarUrl(data.medium)
-    } catch {
-      setError('Failed to upload avatar. Please try again.')
+    } catch (err: any) {
+      if (err.message === 'FILE_TOO_LARGE') {
+        setUploadError('ไฟล์มีขนาดใหญ่เกิน 10MB กรุณาเลือกไฟล์ที่เล็กกว่า')
+      } else {
+        setUploadError('Failed to upload avatar. Please try again.')
+      }
       URL.revokeObjectURL(objectUrl)
       setAvatarPreview(null)
     } finally {
@@ -102,6 +112,7 @@ export default function EditProfilePage() {
 
   // ── Banner upload ────────────────────────────────────────────────────────
   const handleBannerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUploadError('')
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -119,11 +130,18 @@ export default function EditProfilePage() {
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       })
-      if (!res.ok) throw new Error('Upload failed')
+      if (!res.ok) {
+        if (res.status === 413) throw new Error('FILE_TOO_LARGE')
+        throw new Error('Upload failed')
+      }
       const data = await res.json()
       setBannerUrl(data.url)
-    } catch {
-      setError('Failed to upload banner. Please try again.')
+    } catch (err: any) {
+      if (err.message === 'FILE_TOO_LARGE') {
+        setUploadError('ไฟล์มีขนาดใหญ่เกิน 10MB กรุณาเลือกไฟล์ที่เล็กกว่า')
+      } else {
+        setUploadError('Failed to upload banner. Please try again.')
+      }
       URL.revokeObjectURL(objectUrl)
       setBannerPreview(null)
     } finally {
@@ -169,9 +187,7 @@ export default function EditProfilePage() {
   if (loading) {
     return (
       <MainLayout>
-        <div className="flex items-center justify-center h-64">
-          <span className="material-symbols-outlined text-text-muted animate-spin">progress_activity</span>
-        </div>
+        <EditProfileSkeleton />
       </MainLayout>
     )
   }
@@ -264,6 +280,13 @@ export default function EditProfilePage() {
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-500 text-sm">
             {error}
+          </div>
+        )}
+
+        {uploadError && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm flex items-center gap-2">
+            <span className="material-symbols-outlined text-base">error</span>
+            {uploadError}
           </div>
         )}
 

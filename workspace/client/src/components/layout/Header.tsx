@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { io } from 'socket.io-client'
 import { useNotifications } from '@/hooks/useNotifications'
 import NotificationDropdown from '@/components/NotificationDropdown'
+import MessageDropdown from '@/components/chat/MessageDropdown'
 
 interface SearchUser {
   id: string
@@ -68,22 +69,40 @@ export default function Header() {
   const [showMessages, setShowMessages] = useState(false)
   const messageRef = useRef<HTMLDivElement>(null)
 
-  // Fetch unread message count from chat API - count by conversation, not by message
+  // Fetch current user ID early (needed for socket comparison)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!token) return
+    fetch('http://localhost:3001/auth/me', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setCurrentUserId(data.id)
+        setUser({ username: data.username, displayName: data.displayName || data.name, avatarUrl: data.avatarUrl })
+      })
+      .catch(() => {})
+  }, [])
+  // Fetch total unread message count — depends on currentUserId being available
   const fetchMessageUnreadCount = async () => {
     try {
       const res = await fetch('http://localhost:3001/conversations', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       })
       const data = await res.json()
-      // Count conversations with unread messages, not individual messages
-      const count = data.conversations?.filter((c: any) => c.unreadCount > 0).length || 0
-      setMessageUnreadCount(count)
+      const total = data.conversations?.reduce(
+        (sum: number, c: any) => sum + (c.unreadCount || 0),
+        0
+      ) || 0
+      setMessageUnreadCount(total)
     } catch {}
   }
 
   useEffect(() => {
-    fetchMessageUnreadCount()
-  }, [])
+    if (currentUserId) fetchMessageUnreadCount()
+  }, [currentUserId])
 
   // Listen for new message notifications via chat socket
   useEffect(() => {
@@ -97,41 +116,31 @@ export default function Header() {
 
     chatSocket.on('new_message', (message: any) => {
       // Only increment if message is from another user
-      const currentUserId = user?.username
-      if (message.sender?.username !== currentUserId) {
+      if (message.sender?.id !== currentUserId) {
         setMessageUnreadCount(prev => prev + 1)
       }
     })
 
-    chatSocket.on('message_read', () => {
+    chatSocket.on('message_read', (data: { conversationId?: string }) => {
+      // Sync with FABChatContext via shared event
+      window.dispatchEvent(new CustomEvent('messages_read', {
+        detail: { conversationId: data?.conversationId, fromHeader: true },
+      }))
       fetchMessageUnreadCount()
     })
 
     return () => {
       chatSocket.disconnect()
     }
-  }, [user])
+  }, [currentUserId])
 
   // Listen for when messages are read in chat page
   useEffect(() => {
-    const handleMessagesRead = (e: CustomEvent<{ conversationId: string }>) => {
-      // Recalculate from conversations list to get accurate count
+    const handleMessagesRead = () => {
       fetchMessageUnreadCount()
     }
     window.addEventListener('messages_read', handleMessagesRead as EventListener)
     return () => window.removeEventListener('messages_read', handleMessagesRead as EventListener)
-  }, [])
-
-  // Fetch current user on mount
-  useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (!token) return
-    fetch('http://localhost:3001/auth/me', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((data) => setUser({ username: data.username, displayName: data.displayName || data.name, avatarUrl: data.avatarUrl }))
-      .catch(() => {})
   }, [])
 
   // Close dropdown on outside click
@@ -195,6 +204,7 @@ export default function Header() {
   }, [])
 
   const handleLogout = () => {
+    window.dispatchEvent(new CustomEvent('nexus:logout'))
     localStorage.removeItem('token')
     router.push('/login')
   }
@@ -294,20 +304,29 @@ export default function Header() {
       {/* Right: Messages + Notifications + Avatar */}
       <div className="flex items-center justify-end gap-3 w-1/4">
         {/* Messages */}
-        <Link
-          href="/messages"
-          className="p-2 hover:bg-surface-elevated rounded-full transition-colors relative"
-        >
-          <span className="material-symbols-outlined text-text-primary">mail</span>
-          {messageUnreadCount > 0 && (
-            <>
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-primary rounded-full border-2 border-black" />
-              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-primary text-white text-xs font-bold rounded-full flex items-center justify-center px-1">
-                {messageUnreadCount > 99 ? '99+' : messageUnreadCount}
-              </span>
-            </>
+        <div className="relative" ref={messageRef}>
+          <button
+            onClick={() => setShowMessages(v => !v)}
+            className="p-2 hover:bg-surface-elevated rounded-full transition-colors relative"
+          >
+            <span className="material-symbols-outlined text-text-primary" style={{ fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}>chat</span>
+            {messageUnreadCount > 0 && (
+              <>
+                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-primary rounded-full border-2 border-black" />
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-primary text-white text-xs font-bold rounded-full flex items-center justify-center px-1">
+                  {messageUnreadCount > 99 ? '99+' : messageUnreadCount}
+                </span>
+              </>
+            )}
+          </button>
+
+          {showMessages && (
+            <MessageDropdown
+              onClose={() => setShowMessages(false)}
+              onMessagesRead={() => setShowMessages(false)}
+            />
           )}
-        </Link>
+        </div>
 
         {/* Notifications */}
         <div className="relative" ref={notificationRef}>

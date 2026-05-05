@@ -6,7 +6,10 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { PostsModule } from './posts/posts.module';
+import { HashtagsModule } from './hashtags/hashtags.module';
 import { UploadModule } from './upload/upload.module';
+import { ChatModule } from './chat/chat.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -20,7 +23,10 @@ import { UploadModule } from './upload/upload.module';
     AuthModule,
     UsersModule,
     PostsModule,
+    HashtagsModule,
     UploadModule,
+    ChatModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}
