@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import FABChatProvider from '@/contexts/FABChatContext'
+import FABWidget from '@/components/chat/FABWidget'
 
 export const metadata: Metadata = {
   title: 'Nexus Social',
@@ -24,7 +26,10 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-black text-text-primary antialiased">
-        {children}
+        <FABChatProvider>
+          {children}
+          <FABWidget />
+        </FABChatProvider>
       </body>
     </html>
   )
