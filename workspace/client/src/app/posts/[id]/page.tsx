@@ -7,8 +7,9 @@ import MainLayout from '@/components/layout/MainLayout'
 import PostCard from '@/components/posts/PostCard'
 import CommentModal from '@/components/posts/CommentModal'
 import QuoteModal from '@/components/posts/QuoteModal'
+import UserHoverTrigger from '@/components/UserHoverTrigger'
 import { postApi, authApi } from '@/lib/api'
-import { formatDistanceToNow } from '@/lib/format'
+import { formatDistanceToNow, formatAbsoluteTime } from '@/lib/format'
 import { PostSkeleton } from '@/components/Skeleton'
 
 interface ThreadUser {
@@ -43,6 +44,14 @@ interface ThreadPost {
   isReposted: boolean
   isPinned: boolean
   user: ThreadUser
+  /** Quoted post when this post is a quote/repost of another post */
+  quotedPost?: {
+    id: string
+    content: string
+    mediaUrls?: string[]
+    createdAt?: string
+    user: { username: string; displayName?: string; avatarUrl?: string | null }
+  }
 }
 
 interface ThreadData {
@@ -122,24 +131,41 @@ function ReplyItem({
     >
       <div className="flex gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors">
         {/* Avatar */}
-        <Link href={`/profile/${reply.user.username}`} className="shrink-0">
-          <img
-            src={avatarSrc(reply.user.avatarUrl, reply.user.username)}
-            alt={reply.user.displayName || reply.user.username}
-            className="w-10 h-10 rounded-full"
-          />
-        </Link>
+        <UserHoverTrigger
+          username={reply.user.username}
+          avatar={avatarSrc(reply.user.avatarUrl, reply.user.username)}
+          className="shrink-0 w-10 h-10"
+        >
+          <Link href={`/profile/${reply.user.username}`} className="w-10 h-10 block">
+            <img
+              src={avatarSrc(reply.user.avatarUrl, reply.user.username)}
+              alt={reply.user.displayName || reply.user.username}
+              className="w-10 h-10 rounded-full"
+            />
+          </Link>
+        </UserHoverTrigger>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1 flex-wrap">
-            <Link
-              href={`/profile/${reply.user.username}`}
-              className="font-bold text-sm text-text-primary hover:underline"
+            <UserHoverTrigger
+              username={reply.user.username}
+              avatar={avatarSrc(reply.user.avatarUrl, reply.user.username)}
+              className="flex items-center gap-1"
             >
-              {reply.user.displayName || reply.user.username}
-            </Link>
-            <span className="text-text-muted text-sm">@{reply.user.username}</span>
+              <Link
+                href={`/profile/${reply.user.username}`}
+                className="font-bold text-sm text-text-primary hover:underline"
+              >
+                {reply.user.displayName || reply.user.username}
+              </Link>
+              <Link
+                href={`/profile/${reply.user.username}`}
+                className="text-text-muted text-sm hover:underline"
+              >
+                @{reply.user.username}
+              </Link>
+            </UserHoverTrigger>
             <span className="text-text-muted text-sm">·</span>
             <span className="text-text-muted text-sm">{timeAgo(reply.createdAt)}</span>
           </div>
@@ -440,12 +466,15 @@ export default function PostDetailPage() {
           reposted,
           isPinned: post.isPinned,
           time: timeAgo(post.createdAt),
+          absoluteTime: formatAbsoluteTime(post.createdAt),
           stats: {
             comments: post.commentsCount,
-            reposts: post.repostsCount,
-            likes: post.likesCount,
-            views: `${post.likesCount * 10}+`,
+            reposts: repostCount,
+            likes: likeCount,
+            views: `${likeCount * 10}+`,
           },
+          // Pass quotedPost so thread page shows the quoted block
+          quotedPost: post.quotedPost,
         }}
         rawPost={thread.post}
         onLike={handleLike}

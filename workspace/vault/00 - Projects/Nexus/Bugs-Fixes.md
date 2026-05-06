@@ -1469,3 +1469,40 @@ if ('clientId' in message && message.clientId) {
   className="pr-0"  // optional override
 />
 ```
+
+---
+
+## Bug 21: Repost Banner — "You reposted" ใช้ currentUsername แทน loggedInUsername
+
+**Date:** 2026-05-05
+**Severity:** Medium
+
+### Problem
+Banner "You reposted" แสดงผิด logic — เมื่อ @three ดู profile @oneone ที่รีโพสต์โพสต์ของ @twotwo → เห็น "You reposted" แทนที่จะเป็น "One One reposted"
+
+### Root Cause
+`PostCard` เปรียบเทียบ `repostedBy.username === currentUsername` โดย `currentUsername` คือ username ของ profile ที่กำลังดู (เช่น `oneone`) ไม่ใช่ username ของคนที่ login อยู่ (เช่น `three`)
+
+### Solution
+1. เพิ่ม prop ใหม่ `loggedInUsername?: string` ให้ `PostCard`
+2. เปลี่ยน logic เปรียบเทียบเป็น `repostedBy.username === loggedInUsername`
+3. แสดง `displayName` แทน `@username` ใน banner
+4. ทุก page ที่ใช้ `PostCard` ต้องส่ง `loggedInUsername`:
+   - `profile/[username]/page.tsx`: ดึงจาก `authApi.me().data.username`
+   - `home/page.tsx`: ส่ง `currentUser.username`
+   - `following/page.tsx`: ส่ง `currentUser.username`
+   - `hashtag/[tag]/page.tsx`: ส่ง `currentUser.username`
+
+### Logic ที่ถูกต้อง
+```
+banner แสดงเมื่อ post มี repostedBy:
+- repostedBy.username === loggedInUsername → "You reposted"
+- อื่นๆ → "{reposter's displayName} reposted"
+```
+
+### Files Modified
+- `client/src/components/posts/PostCard.tsx` — เพิ่ม prop, แก้ logic banner
+- `client/src/app/profile/[username]/page.tsx` — ดึง + ส่ง loggedInUsername
+- `client/src/app/home/page.tsx` — ส่ง loggedInUsername
+- `client/src/app/following/page.tsx` — ส่ง loggedInUsername
+- `client/src/app/hashtag/[tag]/page.tsx` — ส่ง loggedInUsername

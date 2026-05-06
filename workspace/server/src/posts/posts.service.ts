@@ -140,8 +140,11 @@ export class PostsService {
     if (!quoted || quoted.deletedAt) throw new NotFoundException('Post not found');
 
     const newPost = await this.prisma.post.create({
-      data: { userId, username, content, parentId: postId },
-      include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
+      data: { userId, username, content, quotedPostId: postId },
+      include: {
+        user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+        quotedPost: { select: { id: true, content: true, mediaUrls: true, createdAt: true, user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } } },
+      },
     });
 
     // Create notification
@@ -202,6 +205,7 @@ export class PostsService {
       include: {
         user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
         _count: { select: { likes: true, replies: true, reposts: true } },
+        quotedPost: { select: { id: true, content: true, mediaUrls: true, createdAt: true, user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } } },
       },
     });
 
@@ -265,6 +269,7 @@ export class PostsService {
       include: {
         user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
         _count: { select: { likes: true, replies: true, reposts: true } },
+        quotedPost: { select: { id: true, content: true, mediaUrls: true, createdAt: true, user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } } },
       },
     });
 
@@ -326,6 +331,7 @@ export class PostsService {
         include: {
           user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
           _count: { select: { likes: true, replies: true, reposts: true } },
+          quotedPost: { select: { id: true, content: true, mediaUrls: true, createdAt: true, user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } } },
         },
       }),
       this.prisma.repost.findMany({
@@ -337,6 +343,7 @@ export class PostsService {
             include: {
               user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
               _count: { select: { likes: true, replies: true, reposts: true } },
+              quotedPost: { select: { id: true, content: true, mediaUrls: true, createdAt: true, user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } } },
             },
           },
         },
@@ -429,6 +436,7 @@ export class PostsService {
           include: {
             user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
             _count: { select: { likes: true, replies: true, reposts: true } },
+            quotedPost: { select: { id: true, content: true, mediaUrls: true, createdAt: true, user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } } },
           },
         },
       },
@@ -492,6 +500,7 @@ export class PostsService {
           include: {
             user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
             _count: { select: { likes: true, replies: true, reposts: true } },
+            quotedPost: { select: { id: true, content: true, mediaUrls: true, createdAt: true, user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } } },
           },
         },
       },
@@ -592,6 +601,7 @@ export class PostsService {
       include: {
         user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
         _count: { select: { likes: true, replies: true, reposts: true } },
+        quotedPost: { select: { id: true, content: true, mediaUrls: true, createdAt: true, user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } } },
       },
     });
     if (!post || post.deletedAt) throw new NotFoundException('Post not found');

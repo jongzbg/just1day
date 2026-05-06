@@ -12,6 +12,7 @@ import CommentModal from '@/components/posts/CommentModal'
 import { ProfileHeaderSkeleton, PostComposerSkeleton, PostSkeleton } from '@/components/Skeleton'
 import { userApi, postApi, authApi } from '@/lib/api'
 import { chatApi } from '@/lib/chatApi'
+import { formatAbsoluteTime } from '@/lib/format'
 
 type Tab = 'posts' | 'likes'
 
@@ -56,6 +57,12 @@ interface PostData {
     content: string
     user: { username: string; displayName: string; avatarUrl: string | null }
   }
+  repostedBy?: {
+    id: string
+    username: string
+    displayName?: string | null
+    avatarUrl?: string | null
+  }
 }
 
 function timeAgo(date: string): string {
@@ -77,6 +84,8 @@ export default function ProfilePage() {
   const [posts, setPosts] = useState<PostData[]>([])
   const [likes, setLikes] = useState<PostData[]>([])
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [loggedInUsername, setLoggedInUsername] = useState<string | null>(null)
+  const [loggedInAvatar, setLoggedInAvatar] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState<Tab>(() => {
@@ -98,7 +107,7 @@ export default function ProfilePage() {
     }
 
     authApi.me()
-      .then((res) => setCurrentUserId(res.data.id))
+      .then((res) => { setCurrentUserId(res.data.id); setLoggedInUsername(res.data.username); setLoggedInAvatar(res.data.avatarUrl ?? '') })
       .catch(() => {})
 
     userApi.getProfile(username)
@@ -271,9 +280,11 @@ export default function ProfilePage() {
       isReposted: false,
       isPinned: false,
       user: { id: currentUserId ?? '', username: username, displayName: username, avatarUrl: null },
-      parentPost: {
+      quotedPost: {
         id: quotePost.id,
         content: quotePost.content,
+        mediaUrls: quotePost.mediaUrls,
+        createdAt: quotePost.createdAt,
         user: { username: quotePost.user.username, displayName: quotePost.user.displayName ?? quotePost.user.username, avatarUrl: quotePost.user.avatarUrl },
       },
     }
@@ -365,13 +376,20 @@ export default function ProfilePage() {
       reposted: post.isReposted ?? false,
       isPinned: post.isPinned ?? false,
       time: timeAgo(post.createdAt),
+      absoluteTime: formatAbsoluteTime(post.createdAt),
       stats: {
         comments: post.commentsCount,
         reposts: post.repostsCount,
         likes: post.likesCount,
         views: `${post.likesCount * 10}+`,
       },
-      quotedPost: post.parentPost,
+      quotedPost: post.quotedPost,
+      repostedBy: post.repostedBy ? {
+        id: post.repostedBy.id,
+        username: post.repostedBy.username,
+        displayName: post.repostedBy.displayName || post.repostedBy.username,
+        avatar: post.repostedBy.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${post.repostedBy.username}`,
+      } : undefined,
     }
   }
 
@@ -464,6 +482,9 @@ export default function ProfilePage() {
               onUnpin={handleUnpin}
               onComment={setCommentPost}
               currentUsername={username}
+              loggedInUsername={loggedInUsername ?? undefined}
+              loggedInAvatar={loggedInAvatar}
+              showRepostBanner
               showPinButton={isOwnProfile && activeTab === 'posts'}
               showPinBadge={isOwnProfile && activeTab === 'posts'}
             />

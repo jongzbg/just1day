@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 import FABChatProvider from '@/contexts/FABChatContext'
 import FABWidget from '@/components/chat/FABWidget'
+import { UserHoverCardProvider } from '@/contexts/UserHoverCardContext'
+import HoverCardPortal from '@/components/HoverCardPortal'
 
 export const metadata: Metadata = {
   title: 'Nexus Social',
@@ -26,10 +28,13 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-black text-text-primary antialiased">
-        <FABChatProvider>
-          {children}
-          <FABWidget />
-        </FABChatProvider>
+        <UserHoverCardProvider>
+          <FABChatProvider>
+            {children}
+            <FABWidget />
+            <HoverCardPortal />
+          </FABChatProvider>
+        </UserHoverCardProvider>
       </body>
     </html>
   )

@@ -7,6 +7,7 @@ import PostCard from '@/components/posts/PostCard'
 import QuoteModal from '@/components/posts/QuoteModal'
 import CommentModal from '@/components/posts/CommentModal'
 import { authApi, hashtagApi, postApi } from '@/lib/api'
+import { formatAbsoluteTime } from '@/lib/format'
 import { PostSkeleton } from '@/components/Skeleton'
 
 interface ApiPost {
@@ -159,7 +160,7 @@ export default function HashtagPage({ params }: HashtagPageProps) {
       isReposted: false,
       isPinned: false,
       user: { id: currentUser?.id ?? '', username: currentUser?.username ?? '', displayName: currentUser?.username ?? '', avatarUrl: currentUser?.avatarUrl ?? null },
-      parentPost: { id: quotePost.id, content: quotePost.content, user: { username: quotePost.user.username, displayName: quotePost.user.displayName, avatarUrl: quotePost.user.avatarUrl } },
+      quotedPost: { id: quotePost.id, content: quotePost.content, mediaUrls: quotePost.mediaUrls, createdAt: quotePost.createdAt, user: { username: quotePost.user.username, displayName: quotePost.user.displayName, avatarUrl: quotePost.user.avatarUrl } },
     }
     setPosts((current) => [quoteData, ...current])
     setQuotePost(null)
@@ -193,14 +194,23 @@ export default function HashtagPage({ params }: HashtagPageProps) {
     reposted: post.isReposted ?? false,
     isPinned: post.isPinned ?? false,
     time: timeAgo(post.createdAt),
+    absoluteTime: formatAbsoluteTime(post.createdAt),
     stats: {
       comments: post.commentsCount,
       reposts: post.repostsCount,
       likes: post.likesCount,
       views: `${post.likesCount * 10}+`,
     },
-    quotedPost: post.parentPost
-      ? { id: post.parentPost.id, content: post.parentPost.content, user: post.parentPost.user }
+    quotedPost: post.quotedPost
+      ? { id: post.quotedPost.id, content: post.quotedPost.content, mediaUrls: post.quotedPost.mediaUrls, createdAt: post.quotedPost.createdAt, user: post.quotedPost.user }
+      : undefined,
+    repostedBy: (post as any).repostedBy
+      ? {
+          id: (post as any).repostedBy.id,
+          username: (post as any).repostedBy.username,
+          displayName: (post as any).repostedBy.displayName || (post as any).repostedBy.username,
+          avatar: (post as any).repostedBy.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${(post as any).repostedBy.username}`,
+        }
       : undefined,
   })
 
@@ -245,6 +255,7 @@ export default function HashtagPage({ params }: HashtagPageProps) {
               onDelete={handleDelete}
               onComment={setCommentPost}
               currentUsername={currentUser?.username}
+              loggedInUsername={currentUser?.username}
             />
           ))
         )}

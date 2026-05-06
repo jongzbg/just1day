@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
+import UserHoverTrigger from '@/components/UserHoverTrigger'
 
 interface ProfileHeaderProps {
   user: {
@@ -29,22 +30,61 @@ interface ProfileHeaderProps {
 
 export default function ProfileHeader({ user, isOwnProfile = false, onFollow, onMessage, onFollowersClick, onFollowingClick }: ProfileHeaderProps) {
   const [avatarModalOpen, setAvatarModalOpen] = useState(false)
+  // Local state so follow from HoverCardPortal can update stats
+  const [isFollowing, setIsFollowing] = useState(user.isFollowing ?? false)
+  const [followers, setFollowers] = useState(user.followers)
+  const [following, setFollowing] = useState(user.following)
+
+  // Listen for follow changes from HoverCardPortal (custom event)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { byUsername, targetUsername, following, followerCount } = (e as CustomEvent).detail
+      // If this profile's user is the one being followed/unfollowed by the logged-in user
+      if (targetUsername === user.username) {
+        setIsFollowing(following)
+        setFollowers(followerCount)
+      }
+      // If this is the logged-in user's own profile — update their following count
+      if (byUsername === user.username) {
+        setFollowing((prev) => following ? prev + 1 : Math.max(0, prev - 1))
+      }
+    }
+    window.addEventListener('nexus:follow-changed', handler)
+    return () => window.removeEventListener('nexus:follow-changed', handler)
+  }, [user.username])
+
+  const handleFollow = () => {
+    const newFollowing = !isFollowing
+    const newFollowers = newFollowing ? followers + 1 : Math.max(0, followers - 1)
+    setIsFollowing(newFollowing)
+    setFollowers(newFollowers)
+    window.dispatchEvent(new CustomEvent('nexus:follow-changed', {
+      detail: { username: user.username, following: newFollowing, followerCount: newFollowers },
+    }))
+    onFollow?.()
+  }
 
   return (
     <>
-      {/* Banner */}
+      {/* Banner — hover trigger (banner is not the profile card itself) */}
       <section className="relative">
-        <div className="h-48 w-full bg-surface-elevated">
-          {user.banner ? (
-            <img
-              alt="Profile banner"
-              className="w-full h-full object-cover opacity-80"
-              src={user.banner}
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-b from-primary/30 to-black" />
-          )}
-        </div>
+        <UserHoverTrigger
+          username={user.username}
+          avatar={user.avatar}
+          className="block"
+        >
+          <div className="h-48 w-full bg-surface-elevated">
+            {user.banner ? (
+              <img
+                alt="Profile banner"
+                className="w-full h-full object-cover opacity-80"
+                src={user.banner}
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-b from-primary/30 to-black" />
+            )}
+          </div>
+        </UserHoverTrigger>
         <div className="px-4 -mt-16 flex justify-between items-end relative z-10">
           <div>
             {/* Click avatar to open full-size image */}
@@ -80,19 +120,20 @@ export default function ProfileHeader({ user, isOwnProfile = false, onFollow, on
                 </span>
               </button>
               <button
-                onClick={() => onFollow?.()}
+                onClick={handleFollow}
                 className={`px-6 py-2 font-bold rounded-full transition-colors ${
-                  user.isFollowing
+                  isFollowing
                     ? 'border border-border text-text-primary hover:bg-red-500/10 hover:border-red-500 hover:text-red-500'
                     : 'bg-primary text-white hover:opacity-90'
                 }`}
               >
-                {user.isFollowing ? 'Following' : 'Follow'}
+                {isFollowing ? 'Following' : 'Follow'}
               </button>
             </div>
           )}
         </div>
         <div className="px-4 mt-4 space-y-3">
+          {/* Name & username — no hover trigger on profile page itself */}
           <div>
             <h2 className="text-display-lg text-text-primary">{user.name}</h2>
             <p className="text-text-muted">@{user.username}</p>
@@ -118,11 +159,11 @@ export default function ProfileHeader({ user, isOwnProfile = false, onFollow, on
           </div>
           <div className="flex gap-5 pb-4">
             <button onClick={onFollowingClick} className="hover:underline cursor-pointer text-left">
-              <span className="font-bold text-text-primary">{user.following.toLocaleString()}</span>
+              <span className="font-bold text-text-primary">{following.toLocaleString()}</span>
               <span className="text-text-muted"> Following</span>
             </button>
             <button onClick={onFollowersClick} className="hover:underline cursor-pointer text-left">
-              <span className="font-bold text-text-primary">{user.followers.toLocaleString()}</span>
+              <span className="font-bold text-text-primary">{followers.toLocaleString()}</span>
               <span className="text-text-muted"> Followers</span>
             </button>
             <div className="hover:underline cursor-pointer">

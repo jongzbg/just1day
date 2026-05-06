@@ -8,6 +8,7 @@ import PostCard from '@/components/posts/PostCard'
 import QuoteModal from '@/components/posts/QuoteModal'
 import CommentModal from '@/components/posts/CommentModal'
 import { authApi, postApi } from '@/lib/api'
+import { formatDistanceToNow, formatAbsoluteTime } from '@/lib/format'
 import { PostSkeleton } from '@/components/Skeleton'
 
 interface ApiPost {
@@ -207,9 +208,11 @@ export default function HomePage() {
         displayName: currentUser?.username ?? '',
         avatarUrl: currentUser?.avatarUrl ?? null,
       },
-      parentPost: {
+      quotedPost: {
         id: quotePost.id,
         content: quotePost.content,
+        mediaUrls: quotePost.mediaUrls,
+        createdAt: quotePost.createdAt,
         user: {
           username: quotePost.user.username,
           displayName: quotePost.user.displayName,
@@ -272,6 +275,7 @@ export default function HomePage() {
     reposted: post.isReposted ?? false,
     isPinned: post.isPinned ?? false,
     time: timeAgo(post.createdAt),
+    absoluteTime: formatAbsoluteTime(post.createdAt),
     stats: {
       comments: post.commentsCount,
       reposts: post.repostsCount,
@@ -279,11 +283,22 @@ export default function HomePage() {
       views: `${post.likesCount * 10}+`,
     },
     // Quote/embedded post
-    quotedPost: post.parentPost
+    quotedPost: post.quotedPost
       ? {
-          id: post.parentPost.id,
-          content: post.parentPost.content,
-          user: post.parentPost.user,
+          id: post.quotedPost.id,
+          content: post.quotedPost.content,
+          mediaUrls: post.quotedPost.mediaUrls,
+          createdAt: post.quotedPost.createdAt,
+          user: post.quotedPost.user,
+        }
+      : undefined,
+    // Repost banner
+    repostedBy: (post as any).repostedBy
+      ? {
+          id: (post as any).repostedBy.id,
+          username: (post as any).repostedBy.username,
+          displayName: (post as any).repostedBy.displayName || (post as any).repostedBy.username,
+          avatar: (post as any).repostedBy.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${(post as any).repostedBy.username}`,
         }
       : undefined,
   })
@@ -342,6 +357,7 @@ export default function HomePage() {
               onUnpin={handleUnpin}
               onComment={setCommentPost}
               currentUsername={currentUser?.username}
+              loggedInUsername={currentUser?.username}
             />
           ))
         )}

@@ -162,6 +162,15 @@ export class UsersService {
       },
     });
 
+    // Delete the follow notification when unfollowing
+    await this.prisma.notification.deleteMany({
+      where: {
+        type: 'FOLLOW',
+        userId: followingId,
+        actorId: followerId,
+      },
+    });
+
     return { success: true, message: 'Unfollowed successfully' };
   }
 

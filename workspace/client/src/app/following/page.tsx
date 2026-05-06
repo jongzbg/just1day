@@ -6,6 +6,7 @@ import MainLayout from '@/components/layout/MainLayout'
 import PostComposer from '@/components/posts/PostComposer'
 import PostCard from '@/components/posts/PostCard'
 import { postApi, authApi } from '@/lib/api'
+import { formatAbsoluteTime } from '@/lib/format'
 import { PostSkeleton } from '@/components/Skeleton'
 
 interface ApiPost {
@@ -197,12 +198,30 @@ export default function FollowingPage() {
     reposted: post.isReposted ?? false,
     isPinned: post.isPinned ?? false,
     time: timeAgo(post.createdAt),
+    absoluteTime: formatAbsoluteTime(post.createdAt),
     stats: {
       comments: post.commentsCount,
       reposts: post.repostsCount,
       likes: post.likesCount,
       views: `${post.likesCount * 10}+`,
     },
+    quotedPost: post.quotedPost
+      ? {
+          id: post.quotedPost.id,
+          content: post.quotedPost.content,
+          mediaUrls: post.quotedPost.mediaUrls,
+          createdAt: post.quotedPost.createdAt,
+          user: post.quotedPost.user,
+        }
+      : undefined,
+    repostedBy: (post as any).repostedBy
+      ? {
+          id: (post as any).repostedBy.id,
+          username: (post as any).repostedBy.username,
+          displayName: (post as any).repostedBy.displayName || (post as any).repostedBy.username,
+          avatar: (post as any).repostedBy.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${(post as any).repostedBy.username}`,
+        }
+      : undefined,
   })
 
   if (loading) {
@@ -257,6 +276,7 @@ export default function FollowingPage() {
               onPin={handlePin}
               onUnpin={handleUnpin}
               currentUsername={currentUser.username}
+              loggedInUsername={currentUser.username}
             />
           ))
         )}

@@ -7,6 +7,8 @@ import { Lightbox } from 'yet-another-react-lightbox'
 import 'yet-another-react-lightbox/styles.css'
 import PostActions from './PostActions'
 import PostDropdown from './PostDropdown'
+import UserHoverTrigger from '@/components/UserHoverTrigger'
+import { timeAgo } from '@/lib/format'
 
 // Detect if a URL is a video based on extension
 function isVideo(url: string): boolean {
@@ -80,6 +82,8 @@ interface Post {
   image?: string
   images?: string[]
   time: string
+  /** Full ISO timestamp — shown on hover as tooltip (e.g. "22:00 · 5 พ.ค. 2569") */
+  absoluteTime?: string
   stats: {
     comments: number | string
     reposts: number | string
@@ -90,11 +94,13 @@ interface Post {
   reposted?: boolean
   isPinned?: boolean
   // Repost metadata — when viewing a reposted post
-  repostedBy?: { username: string; displayName?: string; avatar?: string }
+  repostedBy?: { id: string; username: string; displayName?: string; avatar?: string }
   // Original post when this IS a quote
   quotedPost?: {
     id: string
     content: string
+    mediaUrls?: string[]
+    createdAt?: string
     user: { username: string; displayName?: string; avatarUrl?: string | null }
   }
 }
@@ -113,13 +119,19 @@ interface PostCardProps {
   /** Custom click handler. If not provided, PostCard navigates to /posts/:id */
   onClick?: (e: React.MouseEvent) => void
   currentUsername?: string
+  /** Username ของคนที่กำลัง login — ใช้เทียบ "You reposted" */
+  loggedInUsername?: string
+  /** Avatar ของคนที่กำลัง login — ใช้ hover card ใน "You reposted" banner */
+  loggedInAvatar?: string
   /** Show pin/unpin button in dropdown — only on profile page for own posts */
   showPinButton?: boolean
   /** Show 📌 badge — only on profile page */
   showPinBadge?: boolean
+  /** Show repost banner — only on profile page */
+  showRepostBanner?: boolean
 }
 
-export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onDelete, onPin, onUnpin, onComment, onClick, currentUsername, showPinButton = false, showPinBadge = false }: PostCardProps) {
+export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onDelete, onPin, onUnpin, onComment, onClick, currentUsername, loggedInUsername, loggedInAvatar, showPinButton = false, showPinBadge = false, showRepostBanner = false }: PostCardProps) {
   const liked = post.liked ?? false
   const reposted = post.reposted ?? false
   const isPinned = post.isPinned ?? false
@@ -170,78 +182,110 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
 
   return (
     <>
-    <article
-      onClick={handleClick}
-      className="p-4 border-b border-border hover:bg-[#16181c]/50 transition-colors cursor-pointer"
-    >
-      {/* Reposted by banner */}
-      {post.repostedBy && (
-        <div className="flex items-center gap-1.5 mb-1 ml-12 text-text-muted text-sm">
-          <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 0" }}>repeat</span>
-          <span>
-            {post.repostedBy.username === currentUsername ? (
-              <span>You reposted</span>
-            ) : (
-              <>
-                <Link
-                  href={`/profile/${post.repostedBy.username}`}
-                  className="hover:underline font-medium"
-                >
-                  @{post.repostedBy.username}
-                </Link>
-                {' '}reposted
-              </>
-            )}
-          </span>
-        </div>
-      )}
+      <article
+        onClick={handleClick}
+        className="p-4 border-b border-border hover:bg-[#16181c]/50 transition-colors cursor-pointer"
+      >
+        {/* Reposted by banner — only show on profile page */}
+        {showRepostBanner && post.repostedBy && (
+          <div className="flex items-center gap-1.5 mb-1 ml-12 text-text-muted text-sm">
+            <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 0" }}>repeat</span>
+            <span>
+              {post.repostedBy.username === loggedInUsername ? (
+                loggedInAvatar ? (
+                  <UserHoverTrigger
+                    username={loggedInUsername ?? ''}
+                    avatar={loggedInAvatar}
+                    className="inline"
+                  >
+                    <span>You reposted</span>
+                  </UserHoverTrigger>
+                ) : (
+                  <span>You reposted</span>
+                )
+              ) : (
+                <>
+                  <UserHoverTrigger
+                    username={post.repostedBy.username}
+                    avatar={post.repostedBy.avatar ?? `https://api.dicebear.com/7.x/identicon/svg?seed=${post.repostedBy.username}`}
+                    className="inline"
+                  >
+                    <Link
+                      href={`/profile/${post.repostedBy.username}`}
+                      className="hover:underline font-medium"
+                    >
+                      {post.repostedBy.displayName || `@${post.repostedBy.username}`}
+                    </Link>
+                  </UserHoverTrigger>
+                  {' '}reposted
+                </>
+              )}
+            </span>
+          </div>
+        )}
 
-      <div className="flex gap-3">
-        {/* Avatar */}
-        <Link
-          href={`/profile/${post.user.username}`}
+        <div className="flex gap-3">
+        {/* Avatar — hover trigger */}
+        <UserHoverTrigger
+          username={post.user.username}
+          avatar={post.user.avatar}
           className="shrink-0 w-10 h-10"
-          onClick={(e) => e.stopPropagation()}
         >
-          <img
-            alt={post.user.name}
-            className="w-10 h-10 rounded-full hover:opacity-80 transition-opacity"
-            src={post.user.avatar}
-          />
-        </Link>
+          <Link
+            href={`/profile/${post.user.username}`}
+            className="w-10 h-10 block rounded-full hover:opacity-80 transition-opacity"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              alt={post.user.name}
+              className="w-10 h-10 rounded-full hover:opacity-80 transition-opacity"
+              src={post.user.avatar}
+            />
+          </Link>
+        </UserHoverTrigger>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
           {/* Header */}
           <div className="flex items-start justify-between">
-            <div className="flex items-center gap-1 flex-1 min-w-0">
-              <Link
-                href={`/profile/${post.user.username}`}
-                className="hover:underline"
-                onClick={(e) => e.stopPropagation()}
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              {/* Name + username wrapped with hover — time stays outside trigger */}
+              <UserHoverTrigger
+                username={post.user.username}
+                avatar={post.user.avatar}
               >
-                <span className="font-bold text-text-primary truncate">
-                  {post.user.name}
-                </span>
-              </Link>
-              {showPinBadge && isPinned && (
-                <span className="text-[#1D9BF0] text-sm font-medium shrink-0" title="ปักหมุดแล้ว">📌</span>
-              )}
-              <Link
-                href={`/profile/${post.user.username}`}
-                className="text-text-muted truncate hover:underline"
-                onClick={(e) => e.stopPropagation()}
-              >
-                @{post.user.username}
-              </Link>
-              <span className="text-text-muted">·</span>
-              <Link
-                href={`/posts/${post.id}`}
-                className="text-text-muted hover:underline"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {post.time}
-              </Link>
+                <div className="flex items-center gap-1 min-w-0">
+                  <Link
+                    href={`/profile/${post.user.username}`}
+                    className="hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span className="font-bold text-text-primary truncate">
+                      {post.user.name}
+                    </span>
+                  </Link>
+                  {showPinBadge && isPinned && (
+                    <span className="text-[#1D9BF0] text-sm font-medium shrink-0" title="ปักหมุดแล้ว">📌</span>
+                  )}
+                  <Link
+                    href={`/profile/${post.user.username}`}
+                    className="text-text-muted truncate hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    @{post.user.username}
+                  </Link>
+                </div>
+              </UserHoverTrigger>
+              <span className="text-text-muted shrink-0 group/time relative">
+                <Link
+                  href={`/posts/${post.id}`}
+                  className="hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                  title={post.absoluteTime}
+                >
+                  {post.time}
+                </Link>
+              </span>
             </div>
 
             {/* ... dropdown — for own posts, or profile owner with pin */}
@@ -277,7 +321,10 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
 
           {/* Quoted/Embedded Post */}
           {post.quotedPost && (
-            <div className="mt-3 border border-border rounded-xl p-3 hover:bg-white/5 transition-colors cursor-pointer">
+            <div
+              className="mt-3 border border-border rounded-xl p-3 hover:bg-white/5 transition-colors cursor-pointer"
+              onClick={(e) => { e.stopPropagation(); router.push(`/posts/${post.quotedPost!.id}`) }}
+            >
               <div className="flex items-start gap-2">
                 <Link
                   href={`/profile/${post.quotedPost.user.username}`}
@@ -305,14 +352,63 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
                     <span className="text-text-muted text-sm ml-1">
                       @{post.quotedPost.user.username}
                     </span>
+                    {post.quotedPost.createdAt && (
+                      <span className="text-text-muted text-sm ml-1">
+                        · {timeAgo(post.quotedPost.createdAt)}
+                      </span>
+                    )}
                   </Link>
                   <Link
-                    href={`/posts/${post.id}`}
+                    href={`/posts/${post.quotedPost.id}`}
                     onClick={(e) => e.stopPropagation()}
                   >
                     <p className="text-text-primary text-sm mt-1 break-words">
                       {useMemo(() => parseContent(post.quotedPost!.content), [post.quotedPost!.content])}
                     </p>
+                    {post.quotedPost.mediaUrls && post.quotedPost.mediaUrls.length > 0 && (
+                      <div className="mt-2 grid gap-0.5 rounded-xl overflow-hidden border border-border"
+                        style={{
+                          gridTemplateColumns: post.quotedPost.mediaUrls.length === 1
+                            ? '1fr'
+                            : post.quotedPost.mediaUrls.length === 2
+                            ? '1fr 1fr'
+                            : '1fr 1fr',
+                          gridTemplateRows: post.quotedPost.mediaUrls.length === 1
+                            ? '1fr'
+                            : post.quotedPost.mediaUrls.length === 2
+                            ? '1fr'
+                            : '1fr 1fr',
+                          maxHeight: post.quotedPost.mediaUrls.length === 1 ? '250px' : '200px',
+                        }}
+                      >
+                        {post.quotedPost.mediaUrls.slice(0, 4).map((url, idx) => (
+                          <div
+                            key={idx}
+                            className="overflow-hidden bg-neutral-900 relative"
+                            style={{
+                              gridColumn: post.quotedPost.mediaUrls.length === 3 && idx === 0
+                                ? '1 / 2'
+                                : undefined,
+                              gridRow: post.quotedPost.mediaUrls.length === 3 && idx === 0
+                                ? '1 / 3'
+                                : undefined,
+                            }}
+                          >
+                            <img
+                              src={url}
+                              alt=""
+                              className="w-full h-full object-cover"
+                              style={{ minHeight: '80px', maxHeight: post.quotedPost.mediaUrls.length === 1 ? '250px' : '97px' }}
+                            />
+                            {idx === 3 && post.quotedPost.mediaUrls.length > 4 && (
+                              <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-xl font-bold">
+                                +{post.quotedPost.mediaUrls.length - 4}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </Link>
                 </div>
               </div>
@@ -442,7 +538,7 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
           />
         </div>
       </div>
-    </article>
+      </article>
 
     {/* Lightbox for images */}
     {lightboxIndex !== null && mediaImages.length > 0 ? (
