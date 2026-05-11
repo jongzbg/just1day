@@ -8,7 +8,7 @@ import PostCard from '@/components/posts/PostCard'
 import CommentModal from '@/components/posts/CommentModal'
 import QuoteModal from '@/components/posts/QuoteModal'
 import UserHoverTrigger from '@/components/UserHoverTrigger'
-import { postApi, authApi } from '@/lib/api'
+import { postApi, authApi, videoApi } from '@/lib/api'
 import { formatDistanceToNow, formatAbsoluteTime } from '@/lib/format'
 import { PostSkeleton } from '@/components/Skeleton'
 
@@ -44,6 +44,17 @@ interface ThreadPost {
   isReposted: boolean
   isPinned: boolean
   user: ThreadUser
+  /** Video data — fetched from API, may need polling for pending/processing */
+  video?: {
+    id: string
+    status: 'pending' | 'processing' | 'ready' | 'failed'
+    videoUrl?: string
+    thumbnailUrl?: string
+    duration?: number
+    error?: string
+    resolutions?: string[]
+    encodingProfile?: string
+  }
   /** Quoted post when this post is a quote/repost of another post */
   quotedPost?: {
     id: string
@@ -260,6 +271,7 @@ export default function PostDetailPage() {
   const [repostCount, setRepostCount] = useState(0)
   const [quotePost, setQuotePost] = useState<ThreadPost | null>(null)
   const [commentPost, setCommentPost] = useState<any>(null)
+  const [videoData, setVideoData] = useState<ThreadPost['video'] | undefined>(undefined)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -285,6 +297,7 @@ export default function PostDetailPage() {
       setLikeCount(res.data.post.likesCount)
       setReposted(res.data.post.isReposted)
       setRepostCount(res.data.post.repostsCount)
+      setVideoData(res.data.post.video)
     } catch {
       setError('ไม่พบโพสต์นี้')
     } finally {
@@ -292,7 +305,43 @@ export default function PostDetailPage() {
     }
   }
 
-  // Auto-resize textarea
+  // ── Video poll ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const vid = videoData
+    if (!vid) return
+    if (vid.status === 'ready' || vid.status === 'failed') return
+
+    let cancelled = false
+    let attempts = 0
+    const maxAttempts = 15
+
+    const poll = async () => {
+      if (cancelled) return
+      attempts++
+      try {
+        const res = await videoApi.getVideoStatus(postId)
+        if (cancelled) return
+        // Preserve duration from previous state if not returned by API
+        const updated = { ...res.data }
+        if (updated.duration == null && videoData?.duration) {
+          updated.duration = videoData.duration
+        }
+        setVideoData(updated)
+        if (res.data.status === 'ready' || res.data.status === 'failed') return
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 2000)
+        }
+      } catch {
+        // silently stop polling on error
+      }
+    }
+
+    const timer = setTimeout(poll, 2000)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [postId, videoData])
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
@@ -462,6 +511,7 @@ export default function PostDetailPage() {
           },
           content: post.content,
           images: post.mediaUrls?.length ? post.mediaUrls : undefined,
+          video: post.video,
           liked,
           reposted,
           isPinned: post.isPinned,

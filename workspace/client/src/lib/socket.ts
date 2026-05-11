@@ -1,47 +1,49 @@
-import { io, Socket } from 'socket.io-client'
+import { io, Socket } from 'socket.io-client';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
-const NAMESPACE = '/chat'
+let socket: Socket | null = null;
 
-let _socket: Socket | null = null
+// Track which video rooms we've already joined (prevents duplicate emits
+// when multiple PostCards all call useVideoReady for the same videoId)
+const joinedRooms = new Set<string>();
 
-/**
- * Returns a singleton Socket.IO instance connected to the /chat namespace.
- * Authentication is handled by passing the JWT token retrieved from
- * localStorage in the `auth` handshake object.
- *
- * The socket is created with the websocket transport only — long-polling
- * is disabled to match the behaviour expected by ChatGateway.
- *
- * Callers must not call .disconnect() directly; instead rely on the
- * cleanup handled by useSocket.ts.
- */
 export function getSocket(): Socket {
-  if (_socket && _socket.connected) {
-    return _socket
+  if (!socket) {
+    const token = localStorage.getItem('token');
+    socket = io('http://localhost:3001/video', {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 3,
+      reconnectionDelay: 2000,
+    });
+    socket.on('connect', () => {
+      console.log('[Socket] Connected to /video namespace');
+      // Clear joined rooms on reconnect — server will re-join us as needed
+      joinedRooms.clear();
+    });
+    socket.on('disconnect', () => {
+      console.log('[Socket] Disconnected from /video namespace');
+    });
+    socket.on('connect_error', (err) => {
+      console.error('[Socket] Connection error:', err.message);
+    });
+    socket.on('VIDEO_READY', (data) => {
+      console.log('[Socket] VIDEO_READY received:', data.videoId, data.status);
+    });
   }
-
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-
-  _socket = io(`${API_BASE_URL}${NAMESPACE}`, {
-    auth: { token: token ?? '' },
-    transports: ['websocket'],
-    autoConnect: true,
-    reconnection: true,
-    reconnectionAttempts: 5,
-    reconnectionDelay: 1000,
-  })
-
-  return _socket
+  return socket;
 }
 
-/**
- * Explicitly disconnects the singleton socket and clears the reference.
- * Exported so useSocket.ts can call it during cleanup.
- */
-export function disconnectSocket(): void {
-  if (_socket) {
-    _socket.disconnect()
-    _socket = null
-  }
+/** Emit watch_video only once per videoId across all callers */
+export function watchVideo(videoId: string) {
+  const key = videoId;
+  if (joinedRooms.has(key)) return;
+  joinedRooms.add(key);
+  getSocket().emit('watch_video', { videoId });
+  console.log('[Socket] watch_video emitted for', videoId);
+}
+
+export function disconnectSocket() {
+  socket?.disconnect();
+  socket = null;
+  joinedRooms.clear();
 }

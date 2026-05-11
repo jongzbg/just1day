@@ -1,30 +1,42 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import * as express from 'express';
 import * as path from 'path';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const expressApp = app.getHttpAdapter().getInstance();
+
+  // CORS headers for ALL requests (including static files)
+  expressApp.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, Content-Type, Accept, Authorization');
+    if (req.method === 'OPTIONS') return res.end();
+    next();
+  });
 
   // Serve uploaded files statically
-  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-  // Enable CORS — allow multiple frontend origins
+  expressApp.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+  expressApp.use('/videos', express.static(path.join(process.cwd(), 'storage/videos/output'), {
+    maxAge: '1y',
+    immutable: true,
+    index: false,
+  }));
+
+  // CORS for API routes
   const allowedOrigins = [
     'http://localhost:3000',
     'http://192.168.65.254:3000',
     process.env.FRONTEND_URL,
   ].filter(Boolean);
   app.enableCors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, etc.)
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`Origin ${origin} not allowed by CORS policy`));
-      }
-    },
+    origin: allowedOrigins,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   // Increase body size limit for large image uploads
@@ -39,6 +51,7 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
   const port = process.env.PORT || 3001;
   await app.listen(port);

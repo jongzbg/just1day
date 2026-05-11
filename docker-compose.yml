@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  hermes:
+    image: nousresearch/hermes-agent:latest
+    container_name: hermes-agent
+    restart: unless-stopped
+    command: gateway run
+    ports:
+      - "8643:8642"
+    volumes:
+      - ./data:/opt/data
+      - D:/workshop/AI-Projects/just1day/hermes-agent:/workspace
+      - D:/workshop/AI-Projects/just1day/hermes-agent/skills:/opt/data/skills
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_ALLOWED_USERS=${TELEGRAM_ALLOWED_USERS}
+      - MINIMAX_API_KEY=${MINIMAX_API_KEY}
+      - MINIMAX_MODEL=minimax-01/chat
+    networks:
+      - hermes-net
+
+  dashboard:
+    image: nousresearch/hermes-agent:latest
+    container_name: hermes-dashboard
+    restart: unless-stopped
+    command: dashboard --host 0.0.0.0
+    ports:
+      - "9119:9119"
+    volumes:
+      - ./data:/opt/data
+      - D:/workshop/AI-Projects/just1day/hermes-agent:/workspace
+      - D:/workshop/AI-Projects/just1day/hermes-agent/skills:/opt/data/skills
+    environment:
+      - GATEWAY_HEALTH_URL=http://hermes:8642
+    networks:
+      - hermes-net
+    depends_on:
+      - hermes
+
+networks:
+  hermes-net:
+    driver: bridge

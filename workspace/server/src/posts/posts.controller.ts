@@ -33,7 +33,7 @@ export class PostsController {
   @UseGuards(JwtAuthGuard)
   @Post()
   async createPost(@Request() req, @Body() dto: CreatePostDto) {
-    return this.postsService.createPost(req.user.id, req.user.username, dto.content, dto.mediaUrls || []);
+    return this.postsService.createPost(req.user.id, req.user.username, dto.content, dto.mediaUrls || [], dto.videoId);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -11,10 +11,22 @@ import { authApi, postApi } from '@/lib/api'
 import { formatDistanceToNow, formatAbsoluteTime } from '@/lib/format'
 import { PostSkeleton } from '@/components/Skeleton'
 
+interface VideoInfo {
+  id: string
+  status: 'pending' | 'processing' | 'ready' | 'failed'
+  videoUrl?: string
+  thumbnailUrl?: string
+  duration?: number
+  error?: string
+  resolutions?: string[]
+  encodingProfile?: string
+}
+
 interface ApiPost {
   id: string
   content: string
   mediaUrls: string[]
+  video?: VideoInfo
   likesCount: number
   repostsCount: number
   commentsCount: number
@@ -64,7 +76,7 @@ export default function HomePage() {
   // Comment modal state
   const [commentPost, setCommentPost] = useState<any>(null)
 
-  // Check auth + fetch current user
+  // Check auth + fetch current user + feed
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (!token) {
@@ -72,9 +84,22 @@ export default function HomePage() {
       return
     }
     authApi.me()
-      .then((res) => setCurrentUser({ id: res.data.id, username: res.data.username, avatarUrl: res.data.avatarUrl }))
-      .catch(() => {})
-      .finally(() => fetchFeed())
+      .then((res) => {
+        console.log('[Home] auth/me success:', res.data)
+        setCurrentUser({ id: res.data.id, username: res.data.username, avatarUrl: res.data.avatarUrl })
+        return postApi.getFeed()
+      })
+      .then((res) => {
+        console.log('[Home] feed loaded, posts:', res.data.posts?.length)
+        setPosts(res.data.posts)
+      })
+      .catch(() => {
+        localStorage.removeItem('token')
+        router.push('/login')
+      })
+      .finally(() => {
+        setLoading(false)
+      })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -271,6 +296,7 @@ export default function HomePage() {
     },
     content: post.content,
     images: post.mediaUrls?.length ? post.mediaUrls : undefined,
+    video: post.video,
     liked: post.isLiked ?? false,
     reposted: post.isReposted ?? false,
     isPinned: post.isPinned ?? false,

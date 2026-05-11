@@ -372,6 +372,7 @@ export default function ProfilePage() {
       user: { name: displayName, username: post.user.username, avatar },
       content: post.content,
       images: post.mediaUrls?.length ? post.mediaUrls : undefined,
+      video: post.video,
       liked: post.isLiked ?? false,
       reposted: post.isReposted ?? false,
       isPinned: post.isPinned ?? false,

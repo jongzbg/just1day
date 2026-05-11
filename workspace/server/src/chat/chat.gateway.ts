@@ -38,16 +38,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // JWT uses { sub: userId }, but our generateToken uses 'sub' claim
       client.data.userId = payload.sub || payload.id;
       client.data.username = payload.username || payload.name;
-      console.log(`WS connected: user=${payload.username} socket=${client.id}`);
     } catch {
       client.emit('error', { message: 'Invalid token' });
       client.disconnect();
     }
   }
 
-  handleDisconnect(client: Socket) {
-    console.log(`WS disconnected: socket=${client.id}`);
-  }
+  handleDisconnect(_client: Socket) {}
 
   @SubscribeMessage('join_conversation')
   async handleJoinConversation(

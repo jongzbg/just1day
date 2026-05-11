@@ -12,7 +12,7 @@ datasource db {
 
 // User Model
 model User {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   email       String   @unique @db.VarChar(255)
   username    String   @unique @db.VarChar(50)
   name        String   @db.VarChar(100)
@@ -43,7 +43,7 @@ model User {
 
 // Post Model
 model Post {
-  id            String    @id @default(cuid())
+  id            String    @id @default(uuid())
   content       String
   mediaUrls     String[]  // Array of image URLs (stored as JSON)
   likesCount    Int       @default(0)
@@ -68,6 +68,9 @@ model Post {
   reposts   Repost[]
   comments  Comment[]
   notifications Notification[]
+  // Video relation (Prisma infers from videoId)
+  videoId   String?  @unique
+  video     Video?
 
   @@index([userId])
   @@index([createdAt])
@@ -75,6 +78,31 @@ model Post {
   @@index([quotedPostId])
   @@index([deletedAt])
   @@map("Post")
+}
+
+// Video Model
+model Video {
+  id            String    @id @default(uuid())
+  postId        String?   @unique // Nullable until Post is created
+  originalUrl   String?   // Temp URL ก่อน encode
+  videoUrl      String?   // URL หลัง encode เสร็จ
+  thumbnailUrl  String?
+  status        String    @default("pending") // pending | processing | ready | failed
+  error         String?
+  size          Int?      // bytes
+  duration      Int?      // seconds
+  tempId        String?   // Temp file ID สำหรับ tracking
+  resolutions    String[]  // ['240p','360p','480p','720p','1080p'] — available qualities
+  encodingProfile String  @default("incomplete") // 'incomplete' | 'complete' | 'failed'
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  post          Post?     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("Video")
 }
 
 // Follow Model
@@ -124,7 +152,7 @@ model Repost {
 
 // Comment Model
 model Comment {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -145,7 +173,7 @@ model Comment {
 
 // Conversation — a chat thread (1:1 or group)
 model Conversation {
-  id           String    @id @default(cuid())
+  id           String    @id @default(uuid())
   isGroup      Boolean   @default(false)
   lastMessageAt DateTime @default(now())
   expiresAt    DateTime  // Auto-delete after 24h of inactivity
@@ -181,7 +209,7 @@ model ConversationParticipant {
 
 // Message — ephemeral chat message (24h lifecycle)
 model Message {
-  id             String    @id @default(cuid())
+  id             String    @id @default(uuid())
   clientId      String?   // For idempotency — client-generated UUID
   conversationId String
   senderId      String
@@ -211,10 +239,11 @@ enum NotificationType {
   QUOTE
   MESSAGE
   FOLLOW
+  VIDEO_READY
 }
 
 model Notification {
-  id          String           @id @default(cuid())
+  id          String           @id @default(uuid())
   type        NotificationType
   userId      String           // Recipient
   actorId     String           // Who triggered the notification

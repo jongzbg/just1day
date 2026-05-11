@@ -4,15 +4,22 @@
   "private": true,
   "scripts": {
     "build": "nest build",
-    "start": "nest start",
+    "start": "node dist/src/main",
+    "start:dev": "nest start --watch",
     "dev": "nest start --watch",
     "start:prod": "node dist/main",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:seed": "prisma generate && npx --yes ts-node --transpile-only prisma/seed.ts",
+    "worker": "nest start --entryFile video.processor"
+  },
+  "prisma": {
+    "seed": "prisma generate && npx --yes ts-node --transpile-only prisma/seed.ts"
   },
   "dependencies": {
+    "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^10.4.1",
     "@nestjs/core": "^10.4.1",
     "@nestjs/jwt": "^10.2.0",
@@ -24,8 +31,10 @@
     "@prisma/client": "^5.17.0",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^3.0.3",
+    "bullmq": "^5.76.6",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "ioredis": "^5.10.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Lightbox } from 'yet-another-react-lightbox'
@@ -8,6 +8,7 @@ import 'yet-another-react-lightbox/styles.css'
 import PostActions from './PostActions'
 import PostDropdown from './PostDropdown'
 import UserHoverTrigger from '@/components/UserHoverTrigger'
+import { useVideoReady } from '@/hooks/useVideoReady'
 import { timeAgo } from '@/lib/format'
 
 // Detect if a URL is a video based on extension
@@ -71,6 +72,15 @@ function parseContent(content: string): React.ReactNode[] {
   })
 }
 
+// Format seconds → "m:ss" or "h:mm:ss"
+function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = Math.floor(seconds % 60)
+  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
 interface Post {
   id: string
   user: {
@@ -81,6 +91,19 @@ interface Post {
   content: string
   image?: string
   images?: string[]
+  /** Video — comes from API as post.video, not from mediaUrls */
+  video?: {
+    id: string
+    status: 'pending' | 'processing' | 'ready' | 'failed'
+    videoUrl?: string
+    thumbnailUrl?: string
+    duration?: number
+    error?: string
+    resolutions?: string[]
+    encodingProfile?: string
+    /** Internal: set to true when user clicks play to replace thumbnail with <video> */
+    _playing?: boolean
+  }
   time: string
   /** Full ISO timestamp — shown on hover as tooltip (e.g. "22:00 · 5 พ.ค. 2569") */
   absoluteTime?: string
@@ -138,6 +161,8 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const buttonRef = useRef<HTMLDivElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const hiddenVideoRef = useRef<HTMLVideoElement>(null)
   const router = useRouter()
   const isOwnPost = currentUsername === post.user.username
   const likeCount =
@@ -149,6 +174,144 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
   const mediaImages = post.images?.filter((url) => !isVideo(url)) ?? []
   const mediaVideos = post.images?.filter((url) => isVideo(url)) ?? []
 
+  // ── Video poll state (for posts with pending/processing video) ─────────────
+  const [videoData, setVideoData] = useState(post.video)
+  const [videoPaused, setVideoPaused] = useState(true)
+  const [videoCurrentTime, setVideoCurrentTime] = useState(0)
+  const [isMuted, setIsMuted] = useState(true)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsExpandedSection, setSettingsExpandedSection] = useState<string | null>(null)
+  const [playbackRate, setPlaybackRate] = useState(1)
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+
+  // Helper to render video controls bar (used in both thumbnail and playing states)
+  const VideoControlsBar = ({ isPlaying, isThumbnail }: { isPlaying: boolean; isThumbnail: boolean }) => {
+    if (!videoData) return null
+    return (
+    <div
+      data-video-controls
+      className={`absolute bottom-0 left-0 right-0 flex flex-col gap-1 px-3 pb-3 pt-16 bg-gradient-to-t from-black/80 to-transparent pointer-events-none transition-opacity ${isPlaying ? 'opacity-100' : 'opacity-0'}`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Progress bar */}
+      <div
+        className="w-full h-1 bg-white/30 rounded-full overflow-hidden cursor-pointer pointer-events-auto"
+        onClick={(e) => {
+          e.stopPropagation()
+          if (!videoRef.current || isThumbnail) return
+          const rect = e.currentTarget.getBoundingClientRect()
+          const ratio = (e.clientX - rect.left) / rect.width
+          videoRef.current.currentTime = ratio * videoRef.current.duration
+        }}
+      >
+        <div
+          className="h-full bg-white rounded-full"
+          style={{ width: videoData.duration ? `${(videoCurrentTime / videoData.duration) * 100}%` : '0%' }}
+        />
+      </div>
+      {/* Control buttons row */}
+      <div className="flex items-center gap-2 pointer-events-auto">
+        {/* Play/Pause */}
+        <button
+          data-no-nav
+          className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
+          onClick={(e) => {
+            e.stopPropagation()
+            if (!videoRef.current) return
+            if (isThumbnail) {
+              setVideoData((prev) => prev ? { ...prev, _playing: true } : prev)
+            } else {
+              if (videoRef.current.paused) {
+                videoRef.current.play()
+              } else {
+                videoRef.current.pause()
+              }
+            }
+          }}
+        >
+          <span className="material-symbols-outlined text-white text-lg">
+            {isPlaying ? 'pause' : 'play_arrow'}
+          </span>
+        </button>
+
+        {/* Current time / Duration */}
+        <span className="text-white text-xs tabular-nums">
+          {formatDuration(Math.floor(videoCurrentTime))} / {formatDuration(videoData.duration || 0)}
+        </span>
+
+        <div className="flex-1" />
+
+        {/* Volume */}
+        <button
+          data-no-nav
+          className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors"
+          onClick={(e) => {
+            e.stopPropagation()
+            if (!videoRef.current) return
+            if (videoRef.current.muted || videoRef.current.volume === 0) {
+              videoRef.current.muted = false
+              videoRef.current.volume = 1
+              setIsMuted(false)
+            } else {
+              videoRef.current.muted = true
+              setIsMuted(true)
+            }
+          }}
+        >
+          <span className="material-symbols-outlined text-white text-lg">
+            {isMuted || !videoRef.current?.volume ? 'volume_off' : 'volume_up'}
+          </span>
+        </button>
+
+        {/* Fullscreen */}
+        <button
+          data-no-nav
+          className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors"
+          onClick={(e) => {
+            e.stopPropagation()
+            const container = videoRef.current?.parentElement
+            if (!container) return
+            if (document.fullscreenElement) {
+              document.exitFullscreen()
+            } else {
+              container.requestFullscreen()
+            }
+          }}
+        >
+          <span className="material-symbols-outlined text-white text-lg">fullscreen</span>
+        </button>
+      </div>
+    </div>
+  )
+  }
+
+  // ── useVideoReady: Socket.IO + SSE + HTTP polling fallback ───────────────────
+  const videoId = post.video?.id ?? null
+  const videoReadyPayload = useVideoReady(videoId)
+
+  // Sync hook result → local videoData state
+  useEffect(() => {
+    if (!videoReadyPayload) return
+    const { videoId: _vid, status, videoUrl, thumbnailUrl, resolutions, encodingProfile, error } = videoReadyPayload
+    setVideoData((prev) => ({
+      ...prev!,
+      status,
+      videoUrl: videoUrl ?? prev?.videoUrl,
+      thumbnailUrl: thumbnailUrl ?? prev?.thumbnailUrl,
+      resolutions: resolutions ?? prev?.resolutions,
+      encodingProfile: encodingProfile ?? prev?.encodingProfile,
+      error,
+    }))
+  }, [videoReadyPayload])
+
+  // ── Auto-play when _playing is set ───────────────────────────────────────
+  useEffect(() => {
+    if (videoData?._playing && videoRef.current) {
+      videoRef.current.play().catch(() => {})
+    }
+  }, [videoData?._playing])
+
   const openLightbox = (index: number) => (e: React.MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()
@@ -158,14 +321,11 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
   const closeLightbox = () => setLightboxIndex(null)
 
   const handleLike = () => {
-    console.log('[PostCard] handleLike called, post.id:', post.id, 'current liked:', liked);
     onLike?.(post.id, !liked)
   }
 
   const handleClick = (e: React.MouseEvent) => {
-    // Stop navigation if clicking interactive elements OR if user selected text
     const target = e.target as HTMLElement
-    console.log('[PostCard] handleClick called, target:', target.tagName, 'class:', target.className, 'closest a:', !!target.closest('a'), 'post.id:', post.id)
     if (
       target.closest('a') ||
       target.closest('button') ||
@@ -175,7 +335,6 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
     if (onClick) {
       onClick(e)
     } else {
-      console.log('[PostCard] navigating to:', `/posts/${post.id}`)
       router.push(`/posts/${post.id}`)
     }
   }
@@ -225,34 +384,36 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
         )}
 
         <div className="flex gap-3">
-        {/* Avatar — hover trigger */}
-        <UserHoverTrigger
-          username={post.user.username}
-          avatar={post.user.avatar}
-          className="shrink-0 w-10 h-10"
-        >
-          <Link
-            href={`/profile/${post.user.username}`}
-            className="w-10 h-10 block rounded-full hover:opacity-80 transition-opacity"
-            onClick={(e) => e.stopPropagation()}
+          {/* Avatar — hover trigger */}
+          <UserHoverTrigger
+            username={post.user.username}
+            avatar={post.user.avatar}
+            className="shrink-0 w-10 h-10"
           >
-            <img
-              alt={post.user.name}
-              className="w-10 h-10 rounded-full hover:opacity-80 transition-opacity"
-              src={post.user.avatar}
-            />
-          </Link>
-        </UserHoverTrigger>
+            <Link
+              href={`/profile/${post.user.username}`}
+              className="w-10 h-10 block rounded-full hover:opacity-80 transition-opacity"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img
+                alt={post.user.name}
+                className="w-10 h-10 rounded-full hover:opacity-80 transition-opacity"
+                src={post.user.avatar}
+              />
+            </Link>
+          </UserHoverTrigger>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
           {/* Header */}
-          <div className="flex items-start justify-between">
+          <div className="flex items-center justify-between">
+            {/* Name + username + time — all in one flex row */}
             <div className="flex items-center gap-2 flex-1 min-w-0">
               {/* Name + username wrapped with hover — time stays outside trigger */}
               <UserHoverTrigger
                 username={post.user.username}
                 avatar={post.user.avatar}
+                className="min-w-0"
               >
                 <div className="flex items-center gap-1 min-w-0">
                   <Link
@@ -276,12 +437,16 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
                   </Link>
                 </div>
               </UserHoverTrigger>
-              <span className="text-text-muted shrink-0 group/time relative">
+              <span className="text-text-muted shrink-0">·</span>
+              {/* Time — stays on same line, outside hover trigger */}
+              <span className="text-text-muted shrink-0 whitespace-nowrap relative group/time">
+                <span className="hidden group-hover/time:block absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-black text-white text-xs rounded whitespace-nowrap z-50">
+                  {post.absoluteTime}
+                </span>
                 <Link
                   href={`/posts/${post.id}`}
                   className="hover:underline"
                   onClick={(e) => e.stopPropagation()}
-                  title={post.absoluteTime}
                 >
                   {post.time}
                 </Link>
@@ -499,8 +664,208 @@ export default function PostCard({ post, rawPost, onLike, onRepost, onQuote, onD
             </div>
           )}
 
-          {/* Video */}
-          {mediaVideos.length > 0 && (
+          {/* Video — from post.video prop (not mediaUrls) */}
+          {videoData && (
+            <>
+              {/* Processing / Pending state */}
+              {videoData.status === 'pending' || videoData.status === 'processing' ? (
+                <div
+                  className="block mt-3 rounded-2xl overflow-hidden border border-border relative bg-neutral-900 group"
+                  style={{ aspectRatio: '16/9', maxHeight: 'none' }}
+                >
+                  {videoData.thumbnailUrl ? (
+                    <img
+                      src={`${API_URL}/videos/${videoData.id}/thumb.jpg`}
+                      alt="Video thumbnail"
+                      className="w-full h-full object-cover opacity-60"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="material-symbols-outlined text-5xl text-text-muted animate-pulse">videocam</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                    <span className="material-symbols-outlined text-4xl text-white animate-pulse">hourglass_empty</span>
+                    <span className="text-text-muted text-sm">
+                      {videoData.status === 'pending' ? 'กำลังเตรียมวิดีโอ...' : 'กำลังประมวลผล...'}
+                    </span>
+                  </div>
+                  {/* Controls bar (disabled for pending/processing) */}
+                  <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-1 px-3 pb-3 pt-16 bg-gradient-to-t from-black/80 to-transparent group-hover:opacity-100 opacity-60 transition-opacity">
+                    <div className="w-full h-1 bg-white/30 rounded-full overflow-hidden">
+                      <div className="h-full bg-white/50 rounded-full" style={{ width: '0%' }} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        data-no-nav
+                        className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center cursor-not-allowed opacity-50"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span className="material-symbols-outlined text-white text-lg">play_arrow</span>
+                      </button>
+                      <span className="text-white text-xs tabular-nums">
+                        0:00 / {formatDuration(videoData.duration || 0)}
+                      </span>
+                      <div className="flex-1" />
+                      <button
+                        data-no-nav
+                        className="w-8 h-8 rounded-full flex items-center justify-center opacity-50 cursor-not-allowed"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span className="material-symbols-outlined text-white text-lg">volume_off</span>
+                      </button>
+                      <button
+                        data-no-nav
+                        className="w-8 h-8 rounded-full flex items-center justify-center opacity-50 cursor-not-allowed"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span className="material-symbols-outlined text-white text-lg">fullscreen</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : videoData.status === 'failed' ? (
+                /* Failed state */
+                <div
+                  className="block mt-3 rounded-2xl overflow-hidden border border-border relative bg-neutral-900"
+                  style={{ maxHeight: '200px', height: '150px' }}
+                >
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                    <span className="material-symbols-outlined text-4xl text-red-400">error</span>
+                    <span className="text-red-400 text-sm">อัปโหลดวิดีโอไม่สำเร็จ</span>
+                    <span className="text-text-muted text-xs">{videoData.error}</span>
+                  </div>
+                </div>
+              ) : videoData.status === 'ready' && videoData.videoUrl ? (
+                /* Ready — thumbnail with play overlay, click to play inline */
+                <div
+                  data-no-nav
+                  className="block mt-3 rounded-2xl overflow-hidden border border-border cursor-pointer relative group"
+                  style={{ aspectRatio: '16/9', maxHeight: 'none' }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setVideoData((prev) => prev ? { ...prev, _playing: true } : prev)
+                  }}
+                >
+                  {!videoData._playing ? (
+                    <>
+                      {/* Hidden video to preload duration from API source */}
+                      <video
+                        ref={hiddenVideoRef}
+                        className="hidden"
+                        src={videoData.videoUrl ? `${API_URL}${videoData.videoUrl}` : `${API_URL}/videos/${videoData.id}/video_720.mp4`}
+                        onLoadedMetadata={() => {
+                          if (hiddenVideoRef.current && hiddenVideoRef.current.duration && videoData) {
+                            setVideoData(prev => prev ? { ...prev, duration: hiddenVideoRef.current!.duration } : prev)
+                          }
+                        }}
+                      />
+                      <img
+                        src={`${API_URL}/videos/${videoData.id}/thumb.jpg`}
+                        alt="Video thumbnail"
+                        className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
+                      />
+                      {/* Play button overlay */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-16 h-16 rounded-full bg-black/60 flex items-center justify-center group-hover:bg-black/70 transition-colors">
+                          <span className="material-symbols-outlined text-white text-4xl" style={{ marginLeft: '3px' }}>play_arrow</span>
+                        </div>
+                      </div>
+                      {/* Duration badge — bottom right */}
+                      <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded font-mono tabular-nums">
+                        {formatDuration(videoData.duration || 0)}
+                      </div>
+                      
+                    </>
+                  ) : (
+                    <div className="relative bg-black">
+                      <video
+                        ref={videoRef}
+                        key={videoData.id}
+                        src={videoData.videoUrl ? `${API_URL}${videoData.videoUrl}` : `${API_URL}/videos/${videoData.id}/video_720.mp4`}
+                        poster={`${API_URL}/videos/${videoData.id}/thumb.jpg`}
+                        preload="auto"
+                        muted={isMuted}
+                        className="w-full h-full object-cover"
+                        onTimeUpdate={() => setVideoCurrentTime(videoRef.current?.currentTime || 0)}
+                        onLoadedMetadata={() => {
+                          if (videoRef.current && videoRef.current.duration && videoData) {
+                            setVideoData(prev => prev ? { ...prev, duration: videoRef.current!.duration } : prev)
+                          }
+                        }}
+                        onPlay={() => setVideoPaused(false)}
+                        onPause={() => setVideoPaused(true)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (videoRef.current) {
+                            if (videoRef.current.paused) {
+                              videoRef.current.play()
+                            } else {
+                              videoRef.current.pause()
+                            }
+                          }
+                        }}
+                      />
+                      {/* Controls bar — playing: always visible */}
+                      <div data-video-controls className="absolute bottom-0 left-0 right-0 flex flex-col gap-1 px-3 pb-3 pt-16 bg-gradient-to-t from-black/80 to-transparent opacity-100 pointer-events-auto">
+                        {/* Progress bar */}
+                        <div
+                          className="w-full h-1 bg-white/30 rounded-full overflow-hidden cursor-pointer pointer-events-auto"
+                          onClick={(e) => { e.stopPropagation(); if (videoRef.current && videoData.duration) videoRef.current.currentTime = ((e.clientX - e.currentTarget.getBoundingClientRect().left) / e.currentTarget.getBoundingClientRect().width) * videoData.duration }}
+                        >
+                          <div className="h-full bg-white rounded-full" style={{ width: videoData.duration ? `${(videoCurrentTime / videoData.duration) * 100}%` : '0%' }} />
+                        </div>
+                        {/* Buttons */}
+                        <div className="flex items-center gap-2 pointer-events-auto">
+                          <button data-no-nav className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors" onClick={(e) => { e.stopPropagation(); if (videoRef.current) videoRef.current.paused ? videoRef.current.play() : videoRef.current.pause() }}>
+                            <span className="material-symbols-outlined text-white text-lg">{!videoPaused ? 'pause' : 'play_arrow'}</span>
+                          </button>
+                          <span className="text-white text-xs tabular-nums">{formatDuration(Math.floor(videoCurrentTime))} / {formatDuration(videoData.duration || 0)}</span>
+                          <div className="flex-1" />
+                          {/* Settings */}
+                          <div className="relative">
+                            <button data-no-nav className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors" onClick={(e) => { e.stopPropagation(); setSettingsOpen(!settingsOpen); if (!settingsOpen) setSettingsExpandedSection(null) }}>
+                              <span className="material-symbols-outlined text-white text-lg">settings</span>
+                            </button>
+                            {settingsOpen && (
+                              <div className="absolute bottom-full right-0 mb-2 bg-[#2f3336] border border-[#38444d] rounded-xl shadow-xl overflow-hidden min-w-[160px] z-50" onClick={(e) => e.stopPropagation()}>
+                                {/* Playback Speed */}
+                                <div
+                                  className="px-3 py-2 cursor-pointer hover:bg-white/5"
+                                  onClick={() => setSettingsExpandedSection(settingsExpandedSection === 'speed' ? null : 'speed')}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[#8b98a5] text-xs font-semibold">ความเร็วในการเล่น</span>
+                                    <span className="text-white text-xs">{settingsExpandedSection === 'speed' ? '▲' : '▼'}</span>
+                                  </div>
+                                  {settingsExpandedSection === 'speed' && (
+                                    <div className="mt-1 space-y-0.5">
+                                      {[0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((r) => (
+                                        <div key={r} className={`text-sm px-2 py-1 rounded cursor-pointer ${playbackRate === r ? 'text-[#1d9bf0] font-bold' : 'text-white hover:bg-white/10'}`} onClick={(e) => { e.stopPropagation(); if (videoRef.current) videoRef.current.playbackRate = r; setPlaybackRate(r); setSettingsOpen(false) }}>{r}x</div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <button data-no-nav className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors" onClick={(e) => { e.stopPropagation(); if (videoRef.current) { videoRef.current.muted = !videoRef.current.muted; setIsMuted(!isMuted) } }}>
+                            <span className="material-symbols-outlined text-white text-lg">{isMuted ? 'volume_off' : 'volume_up'}</span>
+                          </button>
+                          <button data-no-nav className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors" onClick={(e) => { e.stopPropagation(); const c = videoRef.current?.parentElement; if (c) document.fullscreenElement ? document.exitFullscreen() : c.requestFullscreen() }}>
+                            <span className="material-symbols-outlined text-white text-lg">fullscreen</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </>
+          )}
+
+          {/* Legacy inline video from mediaUrls (fallback for old posts) */}
+          {mediaVideos.length > 0 && !videoData && (
             <div
               className="block mt-3 rounded-2xl overflow-hidden border border-border cursor-pointer relative group"
               style={{ maxHeight: '400px' }}

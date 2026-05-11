@@ -10,10 +10,22 @@ import { authApi, hashtagApi, postApi } from '@/lib/api'
 import { formatAbsoluteTime } from '@/lib/format'
 import { PostSkeleton } from '@/components/Skeleton'
 
+interface VideoInfo {
+  id: string
+  status: 'pending' | 'processing' | 'ready' | 'failed'
+  videoUrl?: string
+  thumbnailUrl?: string
+  duration?: number
+  error?: string
+  resolutions?: string[]
+  encodingProfile?: string
+}
+
 interface ApiPost {
   id: string
   content: string
   mediaUrls: string[]
+  video?: VideoInfo
   likesCount: number
   repostsCount: number
   commentsCount: number
@@ -190,6 +202,7 @@ export default function HashtagPage({ params }: HashtagPageProps) {
     },
     content: post.content,
     images: post.mediaUrls?.length ? post.mediaUrls : undefined,
+    video: post.video,
     liked: post.isLiked ?? false,
     reposted: post.isReposted ?? false,
     isPinned: post.isPinned ?? false,

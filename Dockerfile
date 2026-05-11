@@ -29,7 +29,8 @@ WORKDIR /opt/hermes
 COPY package.json package-lock.json ./
 COPY web/package.json web/package-lock.json web/
 
-RUN npm install --prefer-offline --no-audit && \
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm install --no-audit && \
     npx playwright install --with-deps chromium --only-shell && \
     (cd web && npm install --prefer-offline --no-audit) && \
     npm cache clean --force

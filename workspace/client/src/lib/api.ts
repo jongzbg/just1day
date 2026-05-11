@@ -56,6 +56,25 @@ export const uploadApi = {
       },
     })
   },
+  uploadVideo: (file: File) => {
+    const token = localStorage.getItem('token')
+    const formData = new FormData()
+    formData.append('file', file)
+    return axios.post(`${API_BASE_URL}/upload/video`, formData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+  },
+}
+
+// Video endpoints
+export const videoApi = {
+  getVideoStatus: (postId: string) =>
+    api.get(`/videos/post/${postId}/status`),
+  getVideoStatusById: (videoId: string) =>
+    api.get(`/videos/${videoId}/status`),
 }
 
 // Hashtag endpoints
@@ -77,8 +96,8 @@ export const postApi = {
   getUserLikedPosts: (username: string, cursor?: string) =>
     api.get(`/posts/user/${username}/likes`, { params: { cursor } }),
   getPost: (postId: string) => api.get(`/posts/${postId}`),
-  createPost: (content: string, mediaUrls?: string[]) =>
-    api.post('/posts', { content, mediaUrls }),
+  createPost: (content: string, mediaUrls?: string[], videoId?: string) =>
+    api.post('/posts', { content, mediaUrls, videoId }),
   deletePost: (postId: string) => api.delete(`/posts/${postId}`),
   like: (postId: string) => api.post(`/posts/${postId}/like`),
   unlike: (postId: string) => api.delete(`/posts/${postId}/like`),

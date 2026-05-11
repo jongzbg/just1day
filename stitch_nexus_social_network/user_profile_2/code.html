@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#bfc7d3",
+                        "on-error-container": "#ffdad6",
+                        "error-container": "#93000a",
+                        "tertiary-fixed-dim": "#ffb875",
+                        "surface-variant": "#31353b",
+                        "inverse-on-surface": "#2c3136",
+                        "on-surface": "#dfe3ea",
+                        "inverse-primary": "#00629d",
+                        "on-tertiary": "#4b2800",
+                        "on-error": "#690005",
+                        "primary-fixed": "#cfe5ff",
+                        "on-secondary-fixed-variant": "#454747",
+                        "surface-dim": "#0f1419",
+                        "tertiary": "#ffb875",
+                        "secondary": "#c6c6c7",
+                        "primary-fixed-dim": "#99cbff",
+                        "on-tertiary-container": "#472500",
+                        "surface-container-high": "#262a30",
+                        "on-secondary": "#2f3131",
+                        "surface": "#0f1419",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "surface-container-low": "#181c21",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "surface-tint": "#99cbff",
+                        "on-primary-container": "#003050",
+                        "outline-variant": "#3f4851",
+                        "inverse-surface": "#dfe3ea",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-background": "#dfe3ea",
+                        "on-tertiary-fixed-variant": "#6b3b00",
+                        "error": "#ffb4ab",
+                        "on-primary-fixed-variant": "#004a78",
+                        "secondary-container": "#454747",
+                        "tertiary-fixed": "#ffdcc0",
+                        "surface-container-lowest": "#0a0f14",
+                        "background": "#0f1419",
+                        "on-primary-fixed": "#001d33",
+                        "primary-container": "#1d9bf0",
+                        "on-tertiary-fixed": "#2d1600",
+                        "surface-container": "#1c2025",
+                        "on-primary": "#003354",
+                        "surface-bright": "#353a3f",
+                        "primary": "#99cbff",
+                        "surface-container-highest": "#31353b",
+                        "on-secondary-container": "#b4b5b5",
+                        "outline": "#89919d",
+                        "tertiary-container": "#db7e00"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "0.25rem",
+                        "lg": "1.5rem",
+                        "gutter": "1rem",
+                        "md": "1rem",
+                        "sm": "0.5rem",
+                        "base": "4px",
+                        "xl": "2rem",
+                        "container-max-width": "600px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "headline-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["15px", {"lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400"}],
+                        "body-sm": ["13px", {"lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400"}],
+                        "label-caps": ["11px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "display-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                        "headline-md": ["20px", {"lineHeight": "1.4", "letterSpacing": "-0.01em", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            font-size: 24px;
+        }
+        body {
+            background-color: #000000;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #000000;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #2f3336;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="font-body-lg text-on-surface">
+<!-- TopAppBar Execution (Identical to Home Feed) -->
+<header class="fixed top-0 w-full z-50 flex items-center justify-between px-4 h-16 bg-black/80 backdrop-blur-md border-b border-[#2f3336]">
+<div class="flex items-center gap-4 w-1/4">
+<div class="text-[#1d9bf0] text-2xl font-black">Nexus</div>
+<div class="hidden md:flex flex-1 items-center bg-[#16181c] rounded-full px-4 py-2 border border-transparent focus-within:border-[#1d9bf0]">
+<span class="material-symbols-outlined text-[#71767b] text-xl">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm text-white w-full placeholder-[#71767b]" placeholder="Search Nexus" type="text"/>
+</div>
+</div>
+<nav class="flex items-center justify-center gap-8 h-full">
+<button class="text-[#71767b] font-medium pb-3 h-full px-4 flex items-center justify-center hover:bg-[#16181c] transition-colors">For You</button>
+<button class="text-[#71767b] font-medium pb-3 h-full px-4 flex items-center justify-center hover:bg-[#16181c] transition-colors">Following</button>
+</nav>
+<div class="flex items-center justify-end gap-4 w-1/4">
+<button class="p-2 hover:bg-[#16181c] rounded-full transition-colors relative">
+<span class="material-symbols-outlined text-white">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-[#1d9bf0] rounded-full border-2 border-black"></span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-[#2f3336] cursor-pointer active:opacity-80">
+<img alt="Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBcsewFc8JqtxS1JtbQ-hFK2ddt0c7C9G9u5xV08XdGHiqs0p4JHzF-XMp87VFa9uZxzOuKDGRsaGGjVDv2YGejYViofj5OMUyncauvtPYRPSBtM2rWAe21ObxxQZy_1OfsleujQyLxdzLuYCzSIbNQpOBH6xn8HueknR4p6OEx15slG1KPVpWio7e0XEuzNth9P8mn5WyqRSOgUCGrTTEB6kAyOPM6R_hdiKweNFIKlfuojbS4McJWVA4Tl0nouRewdqWLWbqKCEA"/>
+</div>
+</div>
+</header>
+<main class="pt-16 max-w-[1300px] mx-auto flex justify-center min-h-screen">
+<!-- Left Sidebar: Top Users (Identical to Home Feed) -->
+<aside class="hidden lg:flex flex-col w-64 fixed left-[calc(50%-650px)] top-16 h-[calc(100vh-64px)] p-4 space-y-6 overflow-y-auto custom-scrollbar">
+<div class="bg-[#16181c] rounded-2xl border border-[#2f3336] overflow-hidden">
+<div class="p-4 border-b border-[#2f3336]">
+<h2 class="font-headline-md text-white">Top Creators</h2>
+</div>
+<div class="flex flex-col">
+<div class="p-4 flex items-center gap-3 hover:bg-[#2f3336] cursor-pointer transition-colors">
+<img alt="User" class="w-10 h-10 rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAUaR4XHQ-83ZzXp2lU9qGkN1yfgdUrxYpWZK1Vs8ayNA-30tg84i_tr6uSLCv8yRsVJBpY8bR09Ymo-RdUTAkPle9VlGfV7JQNyfsL2kzACfV7tN8iX_CB-K_v2fP0lIgZCtjp6TG5JaGHHnR0Fl19gYvyZ6WX1o8kTcakwLkWvx8m7-faF35zJgvRfARtPB6HPJV6YzNH8WAr-Jnh0C7nL4A23Ny6TsbiaW8pTYCn8iprKpLbReOsFyFgG31WgFpiQ8khlJDl-gw"/>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold text-white truncate">Alex Rivera</p>
+<p class="text-xs text-[#71767b] truncate">@arivera_tech</p>
+</div>
+<button class="bg-white text-black text-xs font-bold px-3 py-1.5 rounded-full hover:bg-gray-200">Follow</button>
+</div>
+<div class="p-4 flex items-center gap-3 hover:bg-[#2f3336] cursor-pointer transition-colors">
+<img alt="User" class="w-10 h-10 rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCDpcXJsPNo97gs_BeToMAKt1yB7dKNguZX36ol9QXz9d0_vUoUUB82gjmwmv0yn2P33cOhF_VsGVOCorcxpKUxnLomz0QMKZ3Iwq3JIYSwsVGKT8YraCUKAnCd3ibllDmGswNYoMFHB0Ghqf4rUdd1J0CuAj51_AG40uYfRb6FtB4CHPK39Z5I3Kap8SByAluFNO8XWapfvRXZbr0TvhZyXWip_N8RwO5looL0_Scrph7GEiQs_LqY7FkGV_LN96SNsCwaUcjwrjs"/>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold text-white truncate">Sarah Chen</p>
+<p class="text-xs text-[#71767b] truncate">@schen_dev</p>
+</div>
+<button class="bg-white text-black text-xs font-bold px-3 py-1.5 rounded-full hover:bg-gray-200">Follow</button>
+</div>
+<div class="p-4 flex items-center gap-3 hover:bg-[#2f3336] cursor-pointer transition-colors">
+<img alt="User" class="w-10 h-10 rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5tVt-EEBh0EZLPgLuqyPeXO6wqjpFPp8FkES4utDnrMJRcXTSLc0KpOFDLv9NnSYjwrPszwn7Trjw4b-bRsy6ZV-dde4QaD-AI6J8npNivlyRPTEEaFR47rZ5Q6LMgzMEK-Yse3GH-YFYniiGW72Hy_DHljTCOjm9abnVh5aw-91WpSZxnVoJcpDwoNG3vI9meFBHg5WSkOOsGPXp4IrJPZR4b0WFqAVRssvhnk34vfIm5L4aAVziJg4ZloNHSneK67fIL2yCAPs"/>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold text-white truncate">Marcus J.</p>
+<p class="text-xs text-[#71767b] truncate">@marcus_visuals</p>
+</div>
+<button class="bg-white text-black text-xs font-bold px-3 py-1.5 rounded-full hover:bg-gray-200">Follow</button>
+</div>
+</div>
+<button class="w-full p-4 text-[#1d9bf0] text-sm font-medium hover:bg-[#2f3336] text-left transition-colors">Show more</button>
+</div>
+<div class="p-4 text-xs text-[#71767b] space-y-2">
+<div class="flex flex-wrap gap-x-3 gap-y-1">
+<a class="hover:underline" href="#">Terms of Service</a>
+<a class="hover:underline" href="#">Privacy Policy</a>
+<a class="hover:underline" href="#">Cookie Policy</a>
+<a class="hover:underline" href="#">Accessibility</a>
+</div>
+<p>© 2024 Nexus Social Inc.</p>
+</div>
+</aside>
+<!-- Center Column: Profile Content -->
+<section class="w-full max-w-[600px] border-x border-[#2f3336] min-h-screen bg-black">
+<!-- Profile Header -->
+<section class="relative">
+<div class="h-48 w-full bg-[#16181c]">
+<img alt="Profile banner" class="w-full h-full object-cover opacity-80" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDfASq65BeDcELW0JMRFag9gVmntIVAiVr6GiQUPlpZyWhXKzcsvgEn2-AGbNwhM1OKNVnA0aMqIwb6BHaVXd9Luj5ZpZ0YV-TANMswb--PdjEJLGsYk_2-6RD45ek6otnQGVVo4E_gKklHlVVrTMBxrHypGt4IlA0rTbbfVFRnwrW92byh8Cjo_6PWmcclNr3o32Poku4wIhF9eN01EGi5InmmIxzw7vOHGm8DXNE3lG2LOPH_ZeWBlwwNfDmdaHMdaejL1Vmdseg"/>
+</div>
+<div class="px-4 -mt-16 flex justify-between items-end relative z-10">
+<div class="p-1 bg-black rounded-full">
+<img alt="Profile avatar" class="w-32 h-32 rounded-full object-cover border-4 border-black" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzU2LZG4vjpkMX-xGDuzf7iod0_ajE0AaeU7eHV3G9pInGBiM0yoWNVOnnmRH3TdMgVbLZ_SjAqXxZm2xmth0OOXvQf6BBEN7xbhMmrfacb0IEWPHERMUeDlPE2TUPI9ZeJuas0YMwyDou9rUmUe_NE0zgiswJZA0OxgeZJnQH-yozPY7pGX8BHKuTxvn7cchwL9sM-CumNSAiYqEugE1XrG3fm_mRCZxg6vMPxg146gYwUGBm3VmHAWW1LBQARXJsHoJiXzYRVsI"/>
+</div>
+<button class="mb-4 px-6 py-2 border border-[#2f3336] text-white font-bold rounded-full hover:bg-[#16181c] transition-colors">
+                        Edit Profile
+                    </button>
+</div>
+<div class="px-4 mt-4 space-y-3">
+<div>
+<h2 class="text-display-lg text-white">Alex Rivera</h2>
+<p class="text-on-surface-variant font-body-lg">@arivera_tech</p>
+</div>
+<p class="text-white font-body-lg leading-relaxed">
+                        Full-stack architect. Exploring the intersection of AI and human-centered UI. Nocturnal coder. ☕️
+                    </p>
+<div class="flex flex-wrap gap-4 text-on-surface-variant text-body-sm">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">location_on</span> San Francisco, CA
+                        </div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">link</span> <span class="text-[#1d9bf0] hover:underline cursor-pointer">rivera.dev</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">calendar_month</span> Joined March 2018
+                        </div>
+</div>
+<div class="flex gap-5 pb-4">
+<div class="hover:underline cursor-pointer"><span class="font-bold text-white">842</span> <span class="text-on-surface-variant">Following</span></div>
+<div class="hover:underline cursor-pointer"><span class="font-bold text-white">12.5K</span> <span class="text-on-surface-variant">Followers</span></div>
+<div class="hover:underline cursor-pointer"><span class="font-bold text-white">4.2K</span> <span class="text-on-surface-variant">Likes</span></div>
+</div>
+</div>
+<!-- Tabs -->
+<div class="flex border-b border-[#2f3336]">
+<div class="flex-1 text-center py-4 hover:bg-[#16181c] cursor-pointer text-white font-bold border-b-4 border-[#1d9bf0]">Posts</div>
+<div class="flex-1 text-center py-4 hover:bg-[#16181c] cursor-pointer text-on-surface-variant font-medium">Replies</div>
+<div class="flex-1 text-center py-4 hover:bg-[#16181c] cursor-pointer text-on-surface-variant font-medium">Highlights</div>
+<div class="flex-1 text-center py-4 hover:bg-[#16181c] cursor-pointer text-on-surface-variant font-medium">Media</div>
+</div>
+</section>
+<!-- User Posts Feed -->
+<div class="divide-y divide-[#2f3336]">
+<article class="p-4 hover:bg-[#0a0a0a] transition-colors cursor-pointer flex gap-3">
+<img alt="Profile" class="w-12 h-12 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBK3I8UGCm6_QLp-fWo9NXUZoVtV36gRWnrU59DRlqCttqup7g_3th8rjH1iZGQazdK2BO-ncu1o7yjShNnOuu35ovCZt5gO9PoAX33HBHEId0OvvamhQ4BwAKQZYL6Z3Tvre9AuP3xO3ZnK4H7lin3W4Lc9FpDljhI3icNn0OcUlij3Eepvf3iGrG_ajLYqr4PhWtPTVm4iwOxVng8EGBeHudGpCqEDYDOgiIItEApWEOgV8p4ZZmC3OJKHarQ5YGXiPC_XuEMU08"/>
+<div class="flex-1 space-y-2">
+<div class="flex justify-between items-center">
+<div class="flex gap-1 text-body-sm">
+<span class="font-bold text-white">Alex Rivera</span>
+<span class="text-on-surface-variant">@arivera_tech · 2h</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">more_horiz</span>
+</div>
+<p class="text-white text-body-lg">Just pushed the initial beta for the new Nexus design system. The focus is entirely on nocturnal high-contrast readability. 🌑💻</p>
+<div class="rounded-xl border border-[#2f3336] overflow-hidden mt-2">
+<img alt="Code preview" class="w-full h-auto object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAaTSyp1YagJrKeZ_PJ9sEaSXjdg7XlTCtJ1D68edIJzPvS6SexFzba4vw3FA3C7Q0UoijRfXTwVITs98GNFgiWedtUf2eDnVFakSDB_ZE5zxGGloD1RP54lcDGMcglZS5_lH9-V-AzvhsEc7P_fipBFTrQVxG92RDGR0RXdRkCc1W_7t4pPFArFaoRDCF_HMr8Tlo7yi1P4hvCGrfY03wrxMCpBkzlhhdXke4PoGrf2r3zOtC9D3ns42LwI3OyUlAY4pL-os9PSk"/>
+</div>
+<div class="flex justify-between text-on-surface-variant pt-2 max-w-md">
+<div class="flex items-center gap-2 hover:text-[#1d9bf0] transition-colors">
+<span class="material-symbols-outlined text-xl">chat_bubble</span> <span class="text-sm">42</span>
+</div>
+<div class="flex items-center gap-2 hover:text-emerald-500 transition-colors">
+<span class="material-symbols-outlined text-xl">sync</span> <span class="text-sm">12</span>
+</div>
+<div class="flex items-center gap-2 hover:text-pink-500 transition-colors">
+<span class="material-symbols-outlined text-xl">favorite</span> <span class="text-sm">156</span>
+</div>
+<div class="flex items-center gap-2 hover:text-[#1d9bf0] transition-colors">
+<span class="material-symbols-outlined text-xl">bar_chart</span> <span class="text-sm">12K</span>
+</div>
+</div>
+</div>
+</article>
+<article class="p-4 hover:bg-[#0a0a0a] transition-colors cursor-pointer flex gap-3">
+<img alt="Profile" class="w-12 h-12 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxPGIziosGkhXkqkXteCOqkJSICWp3j45GxEieMVfvbnVgMcEdLVBMvJ_Mre1JPECfUbXZ54ME80sXF0d6uHwEXyL6eTxW0AtXS2EsD2Y_PnLZ6kBOjfEJYe6aCXXXT8rKf_6jNY5XvtaBfm7luYkAVjg2oAccxAUELsBkr_bkiRpRKlhljvDSFBB6n-Dy1VRHt24Eg-uOuVyxJdzLw9Jkxu3OeCYTf-VrQB7OL1fjvehwVNU_3qz3AHxhA2hDwVOG_X2T-qO-yxs"/>
+<div class="flex-1 space-y-2">
+<div class="flex justify-between items-center">
+<div class="flex gap-1 text-body-sm">
+<span class="font-bold text-white">Alex Rivera</span>
+<span class="text-on-surface-variant">@arivera_tech · 5h</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">more_horiz</span>
+</div>
+<p class="text-white text-body-lg">The best UI is the one that disappears. If a user has to think about where to click, you've already failed the first test of ergonomics.</p>
+<div class="flex justify-between text-on-surface-variant pt-2 max-w-md">
+<div class="flex items-center gap-2 hover:text-[#1d9bf0] transition-colors">
+<span class="material-symbols-outlined text-xl">chat_bubble</span> <span class="text-sm">8</span>
+</div>
+<div class="flex items-center gap-2 hover:text-emerald-500 transition-colors">
+<span class="material-symbols-outlined text-xl">sync</span> <span class="text-sm">5</span>
+</div>
+<div class="flex items-center gap-2 hover:text-pink-500 transition-colors">
+<span class="material-symbols-outlined text-xl">favorite</span> <span class="text-sm">89</span>
+</div>
+<div class="flex items-center gap-2 hover:text-[#1d9bf0] transition-colors">
+<span class="material-symbols-outlined text-xl">bar_chart</span> <span class="text-sm">4.5K</span>
+</div>
+</div>
+</div>
+</article>
+</div>
+</section>
+<!-- Right Sidebar: Trends (Identical to Home Feed) -->
+<aside class="hidden xl:flex flex-col w-80 fixed right-[calc(50%-650px)] top-16 h-[calc(100vh-64px)] p-4 space-y-4 overflow-y-auto custom-scrollbar">
+<div class="bg-[#16181c] rounded-2xl border border-[#2f3336] overflow-hidden">
+<div class="p-4">
+<h2 class="font-headline-md text-white">What's happening</h2>
+</div>
+<div class="flex flex-col">
+<div class="px-4 py-3 hover:bg-[#2f3336] cursor-pointer transition-colors">
+<p class="text-xs text-[#71767b]">Trending in Technology</p>
+<p class="text-sm font-bold text-white">#NexusDevConf</p>
+<p class="text-xs text-[#71767b]">12.4k Posts</p>
+</div>
+<div class="px-4 py-3 hover:bg-[#2f3336] cursor-pointer transition-colors">
+<p class="text-xs text-[#71767b]">Trending Worldwide</p>
+<p class="text-sm font-bold text-white">Quantum Computing</p>
+<p class="text-xs text-[#71767b]">85.2k Posts</p>
+</div>
+<div class="px-4 py-3 hover:bg-[#2f3336] cursor-pointer transition-colors">
+<p class="text-xs text-[#71767b]">UI/UX Design</p>
+<p class="text-sm font-bold text-white">#Glassmorphism</p>
+<p class="text-xs text-[#71767b]">4,210 Posts</p>
+</div>
+<div class="px-4 py-3 hover:bg-[#2f3336] cursor-pointer transition-colors">
+<p class="text-xs text-[#71767b]">Artificial Intelligence</p>
+<p class="text-sm font-bold text-white">Large Language Models</p>
+<p class="text-xs text-[#71767b]">150k Posts</p>
+</div>
+</div>
+<button class="w-full p-4 text-[#1d9bf0] text-sm font-medium hover:bg-[#2f3336] text-left transition-colors">Show more</button>
+</div>
+<!-- Live Stream Preview -->
+<div class="bg-[#16181c] rounded-2xl border border-[#2f3336] overflow-hidden">
+<div class="p-4 border-b border-[#2f3336] flex items-center justify-between">
+<h2 class="font-headline-md text-white">Live</h2>
+<span class="px-2 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded uppercase">Live</span>
+</div>
+<div class="relative group cursor-pointer">
+<img alt="Live stream" class="w-full aspect-video object-cover transition-opacity group-hover:opacity-80" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD1BywWM3XKRMjbJxHR8sFQy4ll1uVNlC04YYfS_XLbdBdzotkJUNCb_A8U2AZ8GBuBCF270x3N7c-TNtmYnRBZb_REGTtGrXf-UNdf9qIEY5FcPTTzi2qXfRALHcjSw_KCqyYlwhyjhOflyeO9dulIJg8Bs_aFgd_FUctXINA3HoxBZbIDzmbMmK5ZRVThdCIvGwRZ4lb3AROfBU-3B6CPpNRU0oevsODVDPZIVjBoSLwUYwdglqVm5u0lxj7LZdPnYVBSuCSZvKM"/>
+<div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-white text-5xl">play_circle</span>
+</div>
+<div class="absolute bottom-2 left-2 right-2 flex items-center gap-2">
+<div class="bg-black/60 backdrop-blur-md px-2 py-1 rounded text-xs text-white">Nexus Talk Live</div>
+</div>
+</div>
+</div>
+</aside>
+</main>
+<!-- Floating Action Button: Chat -->
+<button class="fixed bottom-6 right-6 w-14 h-14 bg-[#1d9bf0] text-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-transform z-50">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">mail</span>
+</button>
+<!-- Bottom Navigation (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 w-full h-16 bg-black/90 backdrop-blur-md border-t border-[#2f3336] flex items-center justify-around z-50">
+<button class="text-white flex flex-col items-center gap-1">
+<span class="material-symbols-outlined">home</span>
+</button>
+<button class="text-white flex flex-col items-center gap-1">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="text-white flex flex-col items-center gap-1">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-white flex flex-col items-center gap-1">
+<span class="material-symbols-outlined">mail</span>
+</button>
+<button class="w-7 h-7 rounded-full overflow-hidden border border-[#2f3336]">
+<img alt="Mobile profile avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAiB3pQA4P_SlBS7NVKe89vq9cBJ3Y-SeTalEgEME6v5KZCWHIkh15yBDoc4ncZ9vzd2CtA2A20E7e3A0KHG_YbhJNbYxOkzBucn5-nUZbQgUDc1l6jbBRJBxJYggeML98UvUl2dh_xlG1ZBw8t5cjEj3Y1n07Fu0dkdvluegKdiO6XuflaY5AIwAlD7oFP-2LORaTkWYgJMVAmBkvSXU8PZZadu-TpOY4vevLUC4YzwVYaHNnJlsDqwAAggMgOkr36MPI8cKDbco"/>
+</button>
+</nav>
+</body></html>

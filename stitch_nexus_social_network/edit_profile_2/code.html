@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#bfc7d3",
+                        "on-error-container": "#ffdad6",
+                        "error-container": "#93000a",
+                        "tertiary-fixed-dim": "#ffb875",
+                        "surface-variant": "#31353b",
+                        "inverse-on-surface": "#2c3136",
+                        "on-surface": "#dfe3ea",
+                        "inverse-primary": "#00629d",
+                        "on-tertiary": "#4b2800",
+                        "on-error": "#690005",
+                        "primary-fixed": "#cfe5ff",
+                        "on-secondary-fixed-variant": "#454747",
+                        "surface-dim": "#0f1419",
+                        "tertiary": "#ffb875",
+                        "secondary": "#c6c6c7",
+                        "primary-fixed-dim": "#99cbff",
+                        "on-tertiary-container": "#472500",
+                        "surface-container-high": "#262a30",
+                        "on-secondary": "#2f3131",
+                        "surface": "#0f1419",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "surface-container-low": "#181c21",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "surface-tint": "#99cbff",
+                        "on-primary-container": "#003050",
+                        "outline-variant": "#3f4851",
+                        "inverse-surface": "#dfe3ea",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-background": "#dfe3ea",
+                        "on-tertiary-fixed-variant": "#6b3b00",
+                        "error": "#ffb4ab",
+                        "on-primary-fixed-variant": "#004a78",
+                        "secondary-container": "#454747",
+                        "tertiary-fixed": "#ffdcc0",
+                        "surface-container-lowest": "#0a0f14",
+                        "background": "#0f1419",
+                        "on-primary-fixed": "#001d33",
+                        "primary-container": "#1d9bf0",
+                        "on-tertiary-fixed": "#2d1600",
+                        "surface-container": "#1c2025",
+                        "on-primary": "#003354",
+                        "surface-bright": "#353a3f",
+                        "primary": "#99cbff",
+                        "surface-container-highest": "#31353b",
+                        "on-secondary-container": "#b4b5b5",
+                        "outline": "#89919d",
+                        "tertiary-container": "#db7e00"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "0.25rem",
+                        "lg": "1.5rem",
+                        "gutter": "1rem",
+                        "md": "1rem",
+                        "sm": "0.5rem",
+                        "base": "4px",
+                        "xl": "2rem",
+                        "container-max-width": "600px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "headline-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["15px", {"lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400"}],
+                        "body-sm": ["13px", {"lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400"}],
+                        "label-caps": ["11px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "display-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                        "headline-md": ["20px", {"lineHeight": "1.4", "letterSpacing": "-0.01em", "fontWeight": "700"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            font-size: 24px;
+        }
+        body { background-color: #000000; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #000000; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #2f3336; border-radius: 10px; }
+    </style>
+</head>
+<body class="font-body-lg text-on-surface">
+<!-- TopAppBar Execution (from SCREEN_6) -->
+<header class="fixed top-0 w-full z-50 flex items-center justify-between px-4 h-16 bg-black/80 backdrop-blur-md border-b border-[#2f3336]">
+<div class="flex items-center gap-4 w-1/4">
+<div class="text-[#1d9bf0] text-2xl font-black">Nexus</div>
+<div class="hidden md:flex flex-1 items-center bg-[#16181c] rounded-full px-4 py-2 border border-transparent focus-within:border-[#1d9bf0]">
+<span class="material-symbols-outlined text-[#71767b] text-xl">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm text-white w-full placeholder-[#71767b]" placeholder="Search Nexus" type="text"/>
+</div>
+</div>
+<nav class="flex items-center justify-center gap-8 h-full">
+<button class="text-[#71767b] font-medium pb-3 h-full px-4 flex items-center justify-center hover:bg-[#16181c] transition-colors">For You</button>
+<button class="text-[#71767b] font-medium pb-3 h-full px-4 flex items-center justify-center hover:bg-[#16181c] transition-colors">Following</button>
+</nav>
+<div class="flex items-center justify-end gap-4 w-1/4">
+<button class="p-2 hover:bg-[#16181c] rounded-full transition-colors relative">
+<span class="material-symbols-outlined text-white">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-[#1d9bf0] rounded-full border-2 border-black"></span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-[#2f3336] cursor-pointer active:opacity-80">
+<img class="w-full h-full object-cover" data-alt="close-up portrait of a professional man with clean-cut style and neutral background, sharp focus and studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAqLhZwH5E0Fmtj1kZqzNPNkkMl-y8O2RC_mbuPEQg6jh1vsF6UspXy3gCAd_pIw7swvp2PWQ3llgPJkgtRiUeqSUqxO720WwY4u4BBXZXBbUzHLrUS6So4v4A0xM7fjA85qaNygDmY7tfZXBpYjLp1pVmz18YosktI7yp7_sU67TQEmfnQfL60q_H0w0KHU5Xurya5oZtYy6GqtWtlZB1iNYs10cyzvl77UHDmLtoSsAsQwaDu00XenygBlycP1WnqBunbfROuD8"/>
+</div>
+</div>
+</header>
+<main class="pt-16 max-w-[1300px] mx-auto flex justify-center min-h-screen">
+<!-- Left Sidebar: Top Users (from SCREEN_6) -->
+<aside class="hidden lg:flex flex-col w-64 fixed left-[calc(50%-650px)] top-16 h-[calc(100vh-64px)] p-4 space-y-6 overflow-y-auto custom-scrollbar">
+<div class="bg-[#16181c] rounded-2xl border border-[#2f3336] overflow-hidden">
+<div class="p-4 border-b border-[#2f3336]">
+<h2 class="font-headline-md text-white">Top Creators</h2>
+</div>
+<div class="flex flex-col">
+<div class="p-4 flex items-center gap-3 hover:bg-[#2f3336] cursor-pointer transition-colors">
+<img alt="User" class="w-10 h-10 rounded-full" data-alt="headshot of a stylish male with creative glasses, modern aesthetic, soft bokeh background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAUaR4XHQ-83ZzXp2lU9qGkN1yfgdUrxYpWZK1Vs8ayNA-30tg84i_tr6uSLCv8yRsVJBpY8bR09Ymo-RdUTAkPle9VlGfV7JQNyfsL2kzACfV7tN8iX_CB-K_v2fP0lIgZCtjp6TG5JaGHHnR0Fl19gYvyZ6WX1o8kTcakwLkWvx8m7-faF35zJgvRfARtPB6HPJV6YzNH8WAr-Jnh0C7nL4A23Ny6TsbiaW8pTYCn8iprKpLbReOsFyFgG31WgFpiQ8khlJDl-gw"/>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold text-white truncate">Alex Rivera</p>
+<p class="text-xs text-[#71767b] truncate">@arivera_tech</p>
+</div>
+<button class="bg-white text-black text-xs font-bold px-3 py-1.5 rounded-full hover:bg-gray-200">Follow</button>
+</div>
+<div class="p-4 flex items-center gap-3 hover:bg-[#2f3336] cursor-pointer transition-colors">
+<img alt="User" class="w-10 h-10 rounded-full" data-alt="portrait of a young woman with vibrant hair and energetic expression, cinematic lighting, modern urban vibe" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCDpcXJsPNo97gs_BeToMAKt1yB7dKNguZX36ol9QXz9d0_vUoUUB82gjmwmv0yn2P33cOhF_VsGVOCorcxpKUxnLomz0QMKZ3Iwq3JIYSwsVGKT8YraCUKAnCd3ibllDmGswNYoMFHB0Ghqf4rUdd1J0CuAj51_AG40uYfRb6FtB4CHPK39Z5I3Kap8SByAluFNO8XWapfvRXZbr0TvhZyXWip_N8RwO5looL0_Scrph7GEiQs_LqY7FkGV_LN96SNsCwaUcjwrjs"/>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold text-white truncate">Sarah Chen</p>
+<p class="text-xs text-[#71767b] truncate">@schen_dev</p>
+</div>
+<button class="bg-white text-black text-xs font-bold px-3 py-1.5 rounded-full hover:bg-gray-200">Follow</button>
+</div>
+<div class="p-4 flex items-center gap-3 hover:bg-[#2f3336] cursor-pointer transition-colors">
+<img alt="User" class="w-10 h-10 rounded-full" data-alt="close-up of a smiling man with sharp features and a sophisticated beard, natural outdoor lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5tVt-EEBh0EZLPgLuqyPeXO6wqjpFPp8FkES4utDnrMJRcXTSLc0KpOFDLv9NnSYjwrPszwn7Trjw4b-bRsy6ZV-dde4QaD-AI6J8npNivlyRPTEEaFR47rZ5Q6LMgzMEK-Yse3GH-YFYniiGW72Hy_DHljTCOjm9abnVh5aw-91WpSZxnVoJcpDwoNG3vI9meFBHg5WSkOOsGPXp4IrJPZR4b0WFqAVRssvhnk34vfIm5L4aAVziJg4ZloNHSneK67fIL2yCAPs"/>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold text-white truncate">Marcus J.</p>
+<p class="text-xs text-[#71767b] truncate">@marcus_visuals</p>
+</div>
+<button class="bg-white text-black text-xs font-bold px-3 py-1.5 rounded-full hover:bg-gray-200">Follow</button>
+</div>
+</div>
+<button class="w-full p-4 text-[#1d9bf0] text-sm font-medium hover:bg-[#2f3336] text-left transition-colors">Show more</button>
+</div>
+<div class="p-4 text-xs text-[#71767b] space-y-2">
+<div class="flex flex-wrap gap-x-3 gap-y-1">
+<a class="hover:underline" href="#">Terms of Service</a>
+<a class="hover:underline" href="#">Privacy Policy</a>
+<a class="hover:underline" href="#">Cookie Policy</a>
+<a class="hover:underline" href="#">Accessibility</a>
+</div>
+<p>© 2024 Nexus Social Inc.</p>
+</div>
+</aside>
+<!-- Center Column: Edit Profile Form -->
+<section class="w-full max-w-[600px] border-x border-[#2f3336] min-h-screen bg-black">
+<!-- Settings Header -->
+<div class="sticky top-16 z-40 bg-black/80 backdrop-blur-md px-4 h-14 flex items-center gap-8 border-b border-[#2f3336]">
+<button class="hover:bg-[#16181c] p-2 rounded-full transition-colors">
+<span class="material-symbols-outlined text-white">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-white">Edit Profile</h1>
+</div>
+<!-- Profile Banner & Image Upload -->
+<div class="relative">
+<div class="h-48 w-full bg-[#16181c] relative group overflow-hidden">
+<img alt="Profile banner" class="w-full h-full object-cover opacity-60" data-alt="abstract geometric 3D shapes in dark navy and deep blue tones with professional studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB7fO6FuFaWSlzBz0Znto-a8xuqJohq2sj7gX8hXgo02Ykg3ZxMKYcSb-3dXiHEDOupPUP89BU41OUBGYW0yzg4BGBpZ49tCjKR9XqPcp_6rF5s0q6Ht-12TJU3YnV3BGG3UvLN2iniMAZiahDydNTJIsy3QLHQFWuDI2vngZdXAbEXy43hWZRLAU2fIaot0TGxxu2BiWIx_qS6Ju7eLuA9ZeurnO_4Jy1jgWkCcT2ZUjJx6RrgBR__thvyC6k-DKt741aYEVE4WGE"/>
+<div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="bg-black/50 p-3 rounded-full text-white hover:bg-black/70">
+<span class="material-symbols-outlined">add_a_photo</span>
+</button>
+</div>
+</div>
+<div class="px-4 -mt-16 relative z-10 flex justify-between items-end">
+<div class="relative group">
+<div class="w-32 h-32 rounded-full border-4 border-black bg-[#0f1419] overflow-hidden">
+<img alt="Profile picture" class="w-full h-full object-cover group-hover:opacity-50 transition-opacity" data-alt="close-up portrait of a professional man in a dark tech environment with soft blue rim lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2ieLnPga4XhAVvQF0y2ek7W-kqACXIPzCNzMiYapr5n-PhH2Gy8epK5O3Bs9gULzq8FVmfk9lpzfNxLxa_Hg16QKfA0EPGGX1yr0BCBN27fxPvCscDuIXCStUZ7q7JW3WU3AoYqVgHoNCobhUmiJ9Jx_7M5x_5PnCRcy9nOaUiD1QWcyikoTINOEiHQ8qIK7SWgmCeLInxBSqizI6y3C3KviyyhxON7lLYNBeMi6gHGJ-KJ3UlfQuP7WiSXSzrPIhLvKFXXOjhaQ"/>
+</div>
+<div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+<span class="material-symbols-outlined text-white">camera_enhance</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Form Content -->
+<form class="p-6 space-y-8">
+<div class="space-y-2">
+<label class="font-label-caps text-[#71767b] px-1">First Name</label>
+<div class="relative">
+<input class="w-full bg-[#16181c] border border-transparent focus:border-[#1d9bf0] focus:ring-0 rounded-lg p-4 text-white font-body-lg transition-all placeholder-[#71767b]" type="text" value="Alexander"/>
+<span class="absolute right-4 top-1/2 -translate-y-1/2 text-[#71767b] text-body-sm">9 / 50</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="font-label-caps text-[#71767b] px-1">Surname</label>
+<div class="relative">
+<input class="w-full bg-[#16181c] border border-transparent focus:border-[#1d9bf0] focus:ring-0 rounded-lg p-4 text-white font-body-lg transition-all placeholder-[#71767b]" type="text" value="Nexus"/>
+<span class="absolute right-4 top-1/2 -translate-y-1/2 text-[#71767b] text-body-sm">5 / 50</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="font-label-caps text-[#71767b] px-1">Bio</label>
+<div class="relative">
+<textarea class="w-full bg-[#16181c] border border-transparent focus:border-[#1d9bf0] focus:ring-0 rounded-lg p-4 text-white font-body-lg transition-all resize-none placeholder-[#71767b]" rows="3">Architecting the next generation of social connectivity. 🛰️</textarea>
+<span class="absolute right-4 bottom-4 text-[#71767b] text-body-sm">56 / 160</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="font-label-caps text-[#71767b] px-1">Location</label>
+<div class="relative">
+<input class="w-full bg-[#16181c] border border-transparent focus:border-[#1d9bf0] focus:ring-0 rounded-lg p-4 text-white font-body-lg transition-all placeholder-[#71767b]" placeholder="Add your location" type="text"/>
+</div>
+</div>
+<div class="pt-8 flex gap-4">
+<button class="flex-1 py-3 px-6 rounded-full border border-[#2f3336] text-white font-bold hover:bg-[#16181c] transition-colors" type="button">Cancel</button>
+<button class="flex-1 py-3 px-6 rounded-full bg-white text-black font-bold hover:bg-[#e6e6e6] transition-colors" type="submit">Save</button>
+</div>
+</form>
+<div class="mt-12 p-6 border-t border-[#2f3336]">
+<h3 class="font-label-caps text-[#71767b] mb-4">Account Management</h3>
+<button class="text-error font-bold text-body-sm hover:underline flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">delete</span>
+                    Deactivate Account
+                </button>
+</div>
+</section>
+<!-- Right Sidebar: Trends (from SCREEN_6) -->
+<aside class="hidden xl:flex flex-col w-80 fixed right-[calc(50%-650px)] top-16 h-[calc(100vh-64px)] p-4 space-y-4 overflow-y-auto custom-scrollbar">
+<div class="bg-[#16181c] rounded-2xl border border-[#2f3336] overflow-hidden">
+<div class="p-4">
+<h2 class="font-headline-md text-white">What's happening</h2>
+</div>
+<div class="flex flex-col">
+<div class="px-4 py-3 hover:bg-[#2f3336] cursor-pointer transition-colors">
+<p class="text-xs text-[#71767b]">Trending in Technology</p>
+<p class="text-sm font-bold text-white">#NexusUpdate</p>
+<p class="text-xs text-[#71767b]">12.5k Posts</p>
+</div>
+<div class="px-4 py-3 hover:bg-[#2f3336] cursor-pointer transition-colors">
+<p class="text-xs text-[#71767b]">Suggested</p>
+<div class="flex items-center gap-3 mt-1">
+<img alt="Suggested user" class="w-10 h-10 rounded-full" data-alt="sharp portrait of a modern tech entrepreneur" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCOhZH0v4Lp9r7Nl88ejJBrb7dJpgwm-D8MRi5_fL19mdq_VGGIl7-1s3wbocEZ1uaQfOupr309jPsPBaFZsfSmMO4dQ_OAov26vWisB7693o5-o2QPu8wxyc5qbyM_9ajWa2wgow3QQ1EebfoGmB7XMG-7qwM5587kFV56w12i6OsPfe339Gs1sG_M_wJTO1TIyJOsAw3e6L6Nq_WJye4lx4_bY6A-G-g1eJEUVC_Dzg094M3x1YU_O5SVns0HaFm-MppQn8oSGNE"/>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold text-white truncate">Dev Insights</p>
+<p class="text-xs text-[#71767b] truncate">@dev_insights</p>
+</div>
+<button class="bg-white text-black text-xs font-bold px-3 py-1.5 rounded-full">Follow</button>
+</div>
+</div>
+</div>
+<button class="w-full p-4 text-[#1d9bf0] text-sm font-medium hover:bg-[#2f3336] text-left transition-colors">Show more</button>
+</div>
+<!-- Live Stream Preview -->
+<div class="bg-[#16181c] rounded-2xl border border-[#2f3336] overflow-hidden">
+<div class="p-4 border-b border-[#2f3336] flex items-center justify-between">
+<h2 class="font-headline-md text-white">Live</h2>
+<span class="px-2 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded uppercase">Live</span>
+</div>
+<div class="relative group cursor-pointer">
+<img class="w-full aspect-video object-cover transition-opacity group-hover:opacity-80" data-alt="Global Dev Summit" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD1BywWM3XKRMjbJxHR8sFQy4ll1uVNlC04YYfS_XLbdBdzotkJUNCb_A8U2AZ8GBuBCF270x3N7c-TNtmYnRBZb_REGTtGrXf-UNdf9qIEY5FcPTTzi2qXfRALHcjSw_KCqyYlwhyjhOflyeO9dulIJg8Bs_aFgd_FUctXINA3HoxBZbIDzmbMmK5ZRVThdCIvGwRZ4lb3AROfBU-3B6CPpNRU0oevsODVDPZIVjBoSLwUYwdglqVm5u0lxj7LZdPnYVBSuCSZvKM"/>
+<div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-white text-5xl">play_circle</span>
+</div>
+<div class="absolute bottom-2 left-2 right-2 flex items-center gap-2">
+<div class="bg-black/60 backdrop-blur-md px-2 py-1 rounded text-xs text-white">Global Dev Summit</div>
+</div>
+</div>
+</div>
+</aside>
+</main>
+<!-- Floating Action Button: Chat (from SCREEN_6) -->
+<button class="fixed bottom-6 right-6 w-14 h-14 bg-[#1d9bf0] text-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-transform z-50">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">mail</span>
+</button>
+<!-- Bottom Navigation (Mobile Only - from SCREEN_6) -->
+<nav class="md:hidden fixed bottom-0 w-full h-16 bg-black/90 backdrop-blur-md border-t border-[#2f3336] flex items-center justify-around z-50">
+<button class="text-white flex flex-col items-center gap-1"><span class="material-symbols-outlined">home</span></button>
+<button class="text-white flex flex-col items-center gap-1"><span class="material-symbols-outlined">search</span></button>
+<button class="text-white flex flex-col items-center gap-1"><span class="material-symbols-outlined">notifications</span></button>
+<button class="text-white flex flex-col items-center gap-1"><span class="material-symbols-outlined">mail</span></button>
+<button class="w-7 h-7 rounded-full overflow-hidden border border-[#2f3336] border-[#1d9bf0]">
+<img class="w-full h-full object-cover" data-alt="mobile profile avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAqLhZwH5E0Fmtj1kZqzNPNkkMl-y8O2RC_mbuPEQg6jh1vsF6UspXy3gCAd_pIw7swvp2PWQ3llgPJkgtRiUeqSUqxO720WwY4u4BBXZXBbUzHLrUS6So4v4A0xM7fjA85qaNygDmY7tfZXBpYjLp1pVmz18YosktI7yp7_sU67TQEmfnQfL60q_H0w0KHU5Xurya5oZtYy6GqtWtlZB1iNYs10cyzvl77UHDmLtoSsAsQwaDu00XenygBlycP1WnqBunbfROuD8"/>
+</button>
+</nav>
+</body></html>

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Nexus Admin Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#bfc7d3",
+                        "on-error-container": "#ffdad6",
+                        "error-container": "#93000a",
+                        "tertiary-fixed-dim": "#ffb875",
+                        "surface-variant": "#31353b",
+                        "inverse-on-surface": "#2c3136",
+                        "on-surface": "#dfe3ea",
+                        "inverse-primary": "#00629d",
+                        "on-tertiary": "#4b2800",
+                        "on-error": "#690005",
+                        "primary-fixed": "#cfe5ff",
+                        "on-secondary-fixed-variant": "#454747",
+                        "surface-dim": "#0f1419",
+                        "tertiary": "#ffb875",
+                        "secondary": "#c6c6c7",
+                        "primary-fixed-dim": "#99cbff",
+                        "on-tertiary-container": "#472500",
+                        "surface-container-high": "#262a30",
+                        "on-secondary": "#2f3131",
+                        "surface": "#0f1419",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "surface-container-low": "#181c21",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "surface-tint": "#99cbff",
+                        "on-primary-container": "#003050",
+                        "outline-variant": "#3f4851",
+                        "inverse-surface": "#dfe3ea",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-background": "#dfe3ea",
+                        "on-tertiary-fixed-variant": "#6b3b00",
+                        "error": "#ffb4ab",
+                        "on-primary-fixed-variant": "#004a78",
+                        "secondary-container": "#454747",
+                        "tertiary-fixed": "#ffdcc0",
+                        "surface-container-lowest": "#0a0f14",
+                        "background": "#0f1419",
+                        "on-primary-fixed": "#001d33",
+                        "primary-container": "#1d9bf0",
+                        "on-tertiary-fixed": "#2d1600",
+                        "surface-container": "#1c2025",
+                        "on-primary": "#003354",
+                        "surface-bright": "#353a3f",
+                        "primary": "#99cbff",
+                        "surface-container-highest": "#31353b",
+                        "on-secondary-container": "#b4b5b5",
+                        "outline": "#89919d",
+                        "tertiary-container": "#db7e00"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "0.25rem",
+                        "lg": "1.5rem",
+                        "gutter": "1rem",
+                        "md": "1rem",
+                        "sm": "0.5rem",
+                        "base": "4px",
+                        "xl": "2rem",
+                        "container-max-width": "600px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "headline-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["15px", {"lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400"}],
+                        "body-sm": ["13px", {"lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400"}],
+                        "label-caps": ["11px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "display-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                        "headline-md": ["20px", {"lineHeight": "1.4", "letterSpacing": "-0.01em", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { background-color: #000000; color: #dfe3ea; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #000000; }
+        ::-webkit-scrollbar-thumb { background: #2f3336; border-radius: 10px; }
+    </style>
+</head>
+<body class="font-body-lg">
+<!-- TopAppBar Shell -->
+<header class="fixed top-0 w-full z-50 flex items-center justify-between px-4 h-16 bg-black/80 backdrop-blur-md border-b border-[#2f3336]">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-black text-[#1d9bf0]">Nexus</span>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-[#1d9bf0] font-bold border-b-2 border-[#1d9bf0] pb-3 h-16 flex items-center mt-3" href="#">Dashboard</a>
+<a class="text-[#71767b] font-medium pb-3 h-16 flex items-center mt-3 hover:text-white transition-colors" href="#">Analytics</a>
+<a class="text-[#71767b] font-medium pb-3 h-16 flex items-center mt-3 hover:text-white transition-colors" href="#">Users</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-[#16181c] rounded-full transition-colors">
+<span class="material-symbols-outlined text-on-surface">notifications</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-surface-variant overflow-hidden border border-[#2f3336]">
+<img alt="User profile settings" data-alt="Portrait of a male system administrator with a professional look against a neutral dark tech office background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDsNME4ohiHEFgP5z5Ya_b3UGhFg9HgVrXX0dYVMwQRCQ9THDZxb7ZZKa67r6x8TLzL5B_vN01c5E29rljQSBAkPTDmq5U6pWvWyV6JCojQwF97dOhApV9_4M_mu10tIOhRrzDB1HLlYB7X1ogYaV678OALmNh13wr_VRyiDxBHauC8dS48sp0v2lbi0qTYNhgN6qPV5vuf19hAIA4sS57H47Mtw1q3FXIU2-I9na-AiLMDZbmYSrrhxUFM1w7hP13UE-Xmf7v67-0"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar (Left) -->
+<aside class="fixed left-0 top-0 h-full hidden lg:flex flex-col p-4 space-y-6 bg-black border-r border-[#2f3336] w-64 pt-20">
+<div class="space-y-2">
+<a class="flex items-center gap-4 p-3 text-[#1d9bf0] font-black hover:bg-[#16181c] rounded-full transition-all duration-200" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-inter text-xl">Home</span>
+</a>
+<a class="flex items-center gap-4 p-3 text-white font-medium hover:bg-[#16181c] rounded-full transition-all duration-200" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-inter text-xl">Explore</span>
+</a>
+<a class="flex items-center gap-4 p-3 text-white font-medium hover:bg-[#16181c] rounded-full transition-all duration-200" href="#">
+<span class="material-symbols-outlined">notifications</span>
+<span class="font-inter text-xl">Notifications</span>
+</a>
+<a class="flex items-center gap-4 p-3 text-white font-medium hover:bg-[#16181c] rounded-full transition-all duration-200" href="#">
+<span class="material-symbols-outlined">mail</span>
+<span class="font-inter text-xl">Messages</span>
+</a>
+<a class="flex items-center gap-4 p-3 text-white font-medium hover:bg-[#16181c] rounded-full transition-all duration-200" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-inter text-xl">Profile</span>
+</a>
+</div>
+<button class="w-full bg-[#1d9bf0] text-white font-bold py-3 px-6 rounded-full text-xl hover:bg-[#1a8cd8] transition-colors">
+            Post
+        </button>
+</aside>
+<!-- Main Content Canvas -->
+<main class="lg:ml-64 xl:mr-80 pt-24 px-4 pb-12">
+<div class="max-w-[800px] mx-auto">
+<!-- Dashboard Title -->
+<div class="mb-8">
+<h1 class="font-display-lg text-display-lg text-white mb-2">Admin Dashboard</h1>
+<p class="text-on-surface-variant font-body-sm">Real-time system health and user activity metrics.</p>
+</div>
+<!-- Metrics Grid -->
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
+<div class="bg-[#16181c] border border-[#2f3336] p-4 rounded-xl">
+<div class="flex items-center justify-between mb-2">
+<span class="material-symbols-outlined text-[#1d9bf0] text-sm">groups</span>
+<span class="text-[10px] font-bold text-emerald-500">+2.4%</span>
+</div>
+<p class="text-[11px] font-label-caps text-[#71767b] uppercase tracking-wider">Total Users</p>
+<p class="text-xl font-bold text-white">128.4k</p>
+</div>
+<div class="bg-[#16181c] border border-[#2f3336] p-4 rounded-xl">
+<div class="flex items-center justify-between mb-2">
+<span class="material-symbols-outlined text-emerald-400 text-sm">online_prediction</span>
+<span class="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+</div>
+<p class="text-[11px] font-label-caps text-[#71767b] uppercase tracking-wider">Online Users</p>
+<p class="text-xl font-bold text-white">14.2k</p>
+</div>
+<div class="bg-[#16181c] border border-[#2f3336] p-4 rounded-xl">
+<div class="flex items-center justify-between mb-2">
+<span class="material-symbols-outlined text-[#1d9bf0] text-sm">edit_square</span>
+</div>
+<p class="text-[11px] font-label-caps text-[#71767b] uppercase tracking-wider">Posts Today</p>
+<p class="text-xl font-bold text-white">45,102</p>
+</div>
+<div class="bg-[#16181c] border border-[#2f3336] p-4 rounded-xl">
+<div class="flex items-center justify-between mb-2">
+<span class="material-symbols-outlined text-[#1d9bf0] text-sm">repeat</span>
+</div>
+<p class="text-[11px] font-label-caps text-[#71767b] uppercase tracking-wider">Reposts Today</p>
+<p class="text-xl font-bold text-white">12,890</p>
+</div>
+<div class="bg-[#16181c] border border-[#2f3336] p-4 rounded-xl">
+<div class="flex items-center justify-between mb-2">
+<span class="material-symbols-outlined text-[#1d9bf0] text-sm">forum</span>
+</div>
+<p class="text-[11px] font-label-caps text-[#71767b] uppercase tracking-wider">Comments Today</p>
+<p class="text-xl font-bold text-white">88,431</p>
+</div>
+</div>
+<!-- Bento Leaderboard Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<!-- Most Liked Users -->
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<h2 class="font-headline-md text-headline-md text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-[#1d9bf0]" style="font-variation-settings: 'FILL' 1;">favorite</span>
+                            Most Liked Users
+                        </h2>
+<span class="text-[11px] font-label-caps text-[#71767b]">Top 100</span>
+</div>
+<div class="bg-[#16181c] border border-[#2f3336] rounded-2xl overflow-hidden">
+<!-- Top 1 Rank (Highlight) -->
+<div class="p-4 border-b border-[#2f3336] bg-[#1d9bf0]/5 flex items-center gap-4">
+<div class="text-xl font-black text-[#1d9bf0] w-6">1</div>
+<div class="h-10 w-10 rounded-full border-2 border-[#1d9bf0] overflow-hidden">
+<img alt="Influencer Profile" data-alt="Portrait of a creative influencer with neon lighting accents, modern tech aesthetics" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDkYIe_7D6Fw2liApw16P8-RcrbDiPkKdB1KYPtek7qVibkBCDNI52d1H9xbfReexCcQ7-UnKPj3LNpFRSfSdm149ct1ODqHAbFUsYmSwRneYpqvvUXQ7xb2V0G-lMqwUkbmiK9_746hEuWPoZp3J586RTP3Nm4L5mlLIOoGa5EMoWLYEKyiAwP5K9eJzUVS136X-0KRryX_-Xq9S2LWVYVgIEcpUU_yKFU2K8Cpi5qLLD5ZohMwPBjREmV4OLmzrS-CMG-IZibxAU"/>
+</div>
+<div class="flex-1">
+<p class="text-white font-bold leading-tight">Alex Rivera</p>
+<p class="text-[#71767b] text-xs">@arivera</p>
+</div>
+<div class="text-right">
+<p class="text-white font-bold">1.2M</p>
+<p class="text-[10px] text-[#71767b] uppercase">Likes</p>
+</div>
+</div>
+<!-- List Items -->
+<div class="divide-y divide-[#2f3336]">
+<!-- Mock List for visual representation -->
+<div class="px-4 py-3 flex items-center gap-4 hover:bg-[#2f3336] transition-colors cursor-pointer">
+<div class="text-sm font-bold text-[#71767b] w-6">2</div>
+<div class="h-8 w-8 rounded-full overflow-hidden">
+<img alt="User 2" data-alt="Young professional woman in high-contrast urban environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCi5bS8KLLIWzyOm1uluNJQkIawqTGFwxx5ycnsrGI2NTPorl2p7eZ_U6jZtyBfXQNc8kh8fx7HgA7yMF0mZabOIy4pNfXRtz2F9hVRkltu_C8KEJGvRdy8OeuUMc95Ldv61evDX-Hfi9THXkKWqmUBX2aj5eRq-KSsVkwH2S2_G74_KgmN_AqE7gEzheWI_ezs2SyA7JRlcP0JZsPGe-QLfSOGVY1MDHO8_fO0hM496wHvHwijnJqF5wV9Gk1Bd60gcfBmkNDBcEc"/>
+</div>
+<div class="flex-1">
+<p class="text-white text-sm font-bold">Sarah Chen</p>
+<p class="text-[#71767b] text-xs">@schen_dev</p>
+</div>
+<div class="text-right">
+<p class="text-white text-sm font-bold">942k</p>
+</div>
+</div>
+<div class="px-4 py-3 flex items-center gap-4 hover:bg-[#2f3336] transition-colors cursor-pointer">
+<div class="text-sm font-bold text-[#71767b] w-6">3</div>
+<div class="h-8 w-8 rounded-full overflow-hidden">
+<img alt="User 3" data-alt="Minimalist headshot of a tech entrepreneur on dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAoAWiMJKuToioOf3H9OwpeWudIsmOwICbGZlhqpF8ZnI4iqJOnmmck1RgkQwDzGhoRPB1w-BS9zLR947UonOa6Esu2S9yx7SRgpISMjGojpwJ-uYENzyo30jnXpFaoZy8oJWhZ1rVrsvEayhBROveQ3seMEoztbauGS27Ac3jNBXcxEEYGw9eii3Tl07EGJJBTcr_ewpAnfNuBasUEyrf6ZetU3eq_ZDSwlwhu_S51UlHDsWbKo9Xqnu90PKrPWJe3bdG-ANvxM_A"/>
+</div>
+<div class="flex-1">
+<p class="text-white text-sm font-bold">Marcus Thorne</p>
+<p class="text-[#71767b] text-xs">@mthorne</p>
+</div>
+<div class="text-right">
+<p class="text-white text-sm font-bold">885k</p>
+</div>
+</div>
+<div class="px-4 py-3 flex items-center gap-4 hover:bg-[#2f3336] transition-colors cursor-pointer">
+<div class="text-sm font-bold text-[#71767b] w-6">4</div>
+<div class="h-8 w-8 rounded-full overflow-hidden">
+<img alt="User 4" data-alt="Professional woman in business attire with focused expression" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBupQIfQpXRy-Kpg78MfU3Blw4zGx0YK_gye4C29Imi1U_S9525wOZO6SnxMqwlEWPDub1jmh-xjXGv3DwGVNWSjw1p3G6YUdS6EgFCK9uBDlyaYF_t-YzqiUUvo5OjpVLOnglu8mfE8aooWf75Tn9Do1OQZyhfn6qooKpyP4eoJ9fk3_LfFIBvZCxEjWegilEOEZ-XLfST13oNcDbGSgLL4cSbVzMjW5kUfMYH-DYUyxkm9daurjP0EtzrL7RXMQgkqyqmg0eGRTc"/>
+</div>
+<div class="flex-1">
+<p class="text-white text-sm font-bold">Elena Vance</p>
+<p class="text-[#71767b] text-xs">@evance</p>
+</div>
+<div class="text-right">
+<p class="text-white text-sm font-bold">712k</p>
+</div>
+</div>
+</div>
+<button class="w-full py-3 text-[#1d9bf0] text-xs font-bold hover:bg-[#2f3336] transition-colors">
+                            View Full List
+                        </button>
+</div>
+</div>
+<!-- Most Reposted Users -->
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<h2 class="font-headline-md text-headline-md text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-[#1d9bf0]">repeat</span>
+                            Top Reposted
+                        </h2>
+<span class="text-[11px] font-label-caps text-[#71767b]">Top 100</span>
+</div>
+<div class="bg-[#16181c] border border-[#2f3336] rounded-2xl overflow-hidden">
+<!-- Top 1 Rank -->
+<div class="p-4 border-b border-[#2f3336] bg-[#1d9bf0]/5 flex items-center gap-4">
+<div class="text-xl font-black text-[#1d9bf0] w-6">1</div>
+<div class="h-10 w-10 rounded-full border-2 border-[#1d9bf0] overflow-hidden">
+<img alt="Executive Profile" data-alt="Senior tech executive portrait with confident posture, soft studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD2Z8EoRxREAnGMEeDUZxVX7xiFjO93MxkIU5_lzosdO3l2-i0ZEnVtRhnyFOMECJztM3JA8ekBloAvyKffLQQpD0i2-ldcrRWF3-7NR5kcStyjusxX01iMBxgGvhhsHtnsDtTXo7lxqXeuRWjqmQM6d9_cPIDePrvWg_TpxqR9Nmm874_JkfLJfYK4gUD_db3IAZr8IbQYYjumXVP7E7iPe7AiMXDQ4cNC8-P8d1xBXG4mQgMbBY4XLRd2O04yDeeRFYAKBjwT9Xo"/>
+</div>
+<div class="flex-1">
+<p class="text-white font-bold leading-tight">Jordan Smith</p>
+<p class="text-[#71767b] text-xs">@jsmith_hq</p>
+</div>
+<div class="text-right">
+<p class="text-white font-bold">452k</p>
+<p class="text-[10px] text-[#71767b] uppercase">Reposts</p>
+</div>
+</div>
+<!-- List Items -->
+<div class="divide-y divide-[#2f3336]">
+<div class="px-4 py-3 flex items-center gap-4 hover:bg-[#2f3336] transition-colors cursor-pointer">
+<div class="text-sm font-bold text-[#71767b] w-6">2</div>
+<div class="h-8 w-8 rounded-full overflow-hidden">
+<img alt="User 2" data-alt="Candid street portrait of a trendy young man in black hoodie" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCR5RQizSJo-SDwpqK4AtQgqKbXdgHDZr7ygUWJTOM89wHVRNk6wTgWsPhk_j0I_Zv6sVwLMJ84WnfoLvVJy51qrSqstiRxMdDhT1Jptvn-YAr4d_0GprgSaOcgozMhMy2y2PJIWX2jEbao3nsOtO5ANrsk5HXiSE_drTZVstmxM_oMcHJa_VbSZf6pQK6h7r8ooMLUveGPpZJ2PC0Xi6651WzdfhfVTrmNlZpjE-D5ST1B3_rfHzhwzkFjq8UTr4aI4qLUh-GtIyw"/>
+</div>
+<div class="flex-1">
+<p class="text-white text-sm font-bold">Liam Foster</p>
+<p class="text-[#71767b] text-xs">@lfoster</p>
+</div>
+<div class="text-right">
+<p class="text-white text-sm font-bold">391k</p>
+</div>
+</div>
+<div class="px-4 py-3 flex items-center gap-4 hover:bg-[#2f3336] transition-colors cursor-pointer">
+<div class="text-sm font-bold text-[#71767b] w-6">3</div>
+<div class="h-8 w-8 rounded-full overflow-hidden">
+<img alt="User 3" data-alt="Artistic portrait of a woman looking sideways, soft shadows" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBNRJrFBqIWETcfagtflrkUkxP1i1-RliA1JpBe1baPdgOs6MDXaJuQLI__8sg5HaRTEjSjiVXu5rwu6BNMEqCbQ5xom5U4FoUDIecbh0EuVyHp0-lt36D61n9HZ80DicMKmi1V80z6gJFii0XzZwKa_g9AeB9UOn86mKmYRU7r29za1OsiX9lEMchk0pUiPUQf3uwC589C7BliDoucR5MGFsUoEyi4jXPd733hNGKksgeUtY-Jvl-LaDjORRQ29F1-W90smAmcy5Q"/>
+</div>
+<div class="flex-1">
+<p class="text-white text-sm font-bold">Sophie Taylor</p>
+<p class="text-[#71767b] text-xs">@staylor_art</p>
+</div>
+<div class="text-right">
+<p class="text-white text-sm font-bold">345k</p>
+</div>
+</div>
+<div class="px-4 py-3 flex items-center gap-4 hover:bg-[#2f3336] transition-colors cursor-pointer">
+<div class="text-sm font-bold text-[#71767b] w-6">4</div>
+<div class="h-8 w-8 rounded-full overflow-hidden">
+<img alt="User 4" data-alt="Portrait of a young man with glasses and creative style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAHB5rfCKNOlFQHw5sjgy2J6on1qMwoaMfal4ydtx5ExqvYT4zR6um59SCBw5vbefbtRCL8VbZxEyP3AgyaM-1M7xuikFuecRoLTucIk7FMqX56eAfQUEa8h8sQ75Fnvq3O530XmtY0x1A1r0n1_yrydYdjn2HVLofCgNvwc5iF2jRttpvDV6ZkkK6leh2wdaBRBwMYJCHwhIub0YTlgZGQ2l1OQZkyRIQxvgtYv1VzajqolXcNzwtDrciHqAD1LD7IpwgyN86DXJY"/>
+</div>
+<div class="flex-1">
+<p class="text-white text-sm font-bold">Ben Cooper</p>
+<p class="text-[#71767b] text-xs">@bcoop</p>
+</div>
+<div class="text-right">
+<p class="text-white text-sm font-bold">288k</p>
+</div>
+</div>
+</div>
+<button class="w-full py-3 text-[#1d9bf0] text-xs font-bold hover:bg-[#2f3336] transition-colors">
+                            View Full List
+                        </button>
+</div>
+</div>
+</div>
+<!-- Recent Activity Log (Admin specific) -->
+<div class="mt-12">
+<h2 class="font-headline-md text-headline-md text-white mb-6">Recent System Logs</h2>
+<div class="space-y-0 bg-[#16181c] border border-[#2f3336] rounded-2xl divide-y divide-[#2f3336]">
+<div class="p-4 flex items-center gap-4 text-sm">
+<span class="material-symbols-outlined text-emerald-400">check_circle</span>
+<span class="text-white font-medium">Auto-moderation:</span>
+<span class="text-[#71767b]">Post ID #98231 scanned and cleared.</span>
+<span class="ml-auto text-[#71767b] text-xs">2m ago</span>
+</div>
+<div class="p-4 flex items-center gap-4 text-sm">
+<span class="material-symbols-outlined text-[#1d9bf0]">info</span>
+<span class="text-white font-medium">Deployment:</span>
+<span class="text-[#71767b]">CDN edge node Frankfurt-02 cache purged.</span>
+<span class="ml-auto text-[#71767b] text-xs">15m ago</span>
+</div>
+<div class="p-4 flex items-center gap-4 text-sm">
+<span class="material-symbols-outlined text-error">warning</span>
+<span class="text-white font-medium">Security:</span>
+<span class="text-[#71767b]">Failed login spike detected from IP 192.168.0.x.</span>
+<span class="ml-auto text-[#71767b] text-xs">42m ago</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Right Sidebar (Trends/Stats) -->
+<aside class="fixed right-0 top-16 h-full hidden xl:block p-4 w-80 space-y-6">
+<div class="bg-[#16181c] border border-[#2f3336] rounded-2xl p-4">
+<h3 class="text-white font-inter text-xl font-bold mb-4">What's happening</h3>
+<div class="space-y-4">
+<div class="flex items-center gap-3 cursor-pointer hover:bg-[#2f3336] p-2 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-[#1d9bf0]">trending_up</span>
+<div>
+<p class="text-[11px] text-[#71767b] uppercase">Trending</p>
+<p class="text-sm font-bold text-white">#NexusUpdate</p>
+<p class="text-[11px] text-[#71767b]">12.4k posts</p>
+</div>
+</div>
+<div class="flex items-center gap-3 cursor-pointer hover:bg-[#2f3336] p-2 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-[#1d9bf0]">sensors</span>
+<div>
+<p class="text-[11px] text-[#71767b] uppercase">Live</p>
+<p class="text-sm font-bold text-white">Nexus Keynote 2024</p>
+<p class="text-[11px] text-[#71767b]">45k viewers</p>
+</div>
+</div>
+<div class="flex items-center gap-3 cursor-pointer hover:bg-[#2f3336] p-2 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-[#1d9bf0]">person_add</span>
+<div>
+<p class="text-[11px] text-[#71767b] uppercase">Growth</p>
+<p class="text-sm font-bold text-white">User Verification</p>
+<p class="text-[11px] text-[#71767b]">Review 42 pending</p>
+</div>
+</div>
+</div>
+</div>
+<div class="p-4 text-[13px] text-[#71767b] space-x-2">
+<a class="hover:underline" href="#">Terms</a>
+<a class="hover:underline" href="#">Privacy</a>
+<a class="hover:underline" href="#">Policy</a>
+<a class="hover:underline" href="#">Cookies</a>
+<span>© 2024 Nexus Admin</span>
+</div>
+</aside>
+<!-- Bottom Navigation (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full bg-black/80 backdrop-blur-md flex justify-around items-center h-16 border-t border-[#2f3336] px-4 z-50">
+<button class="text-[#1d9bf0] flex flex-col items-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">home</span>
+</button>
+<button class="text-white flex flex-col items-center opacity-70">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="text-white flex flex-col items-center opacity-70">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-white flex flex-col items-center opacity-70">
+<span class="material-symbols-outlined">mail</span>
+</button>
+</nav>
+</body></html>

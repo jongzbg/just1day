@@ -1,18 +1,37 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { VideoCleanupService } from '../video/video-cleanup.service';
+
+const VIDEO_SELECT = { select: { id: true, videoUrl: true, thumbnailUrl: true, status: true, duration: true, resolutions: true, encodingProfile: true } };
 
 @Injectable()
 export class PostsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private videoCleanup: VideoCleanupService) {}
 
-  async createPost(userId: string, username: string, content: string, mediaUrls: string[] = []) {
-    return this.prisma.post.create({
-      data: { userId, username, content, mediaUrls },
+  async createPost(
+    userId: string,
+    username: string,
+    content: string,
+    mediaUrls: string[] = [],
+    videoId?: string,
+  ) {
+    const post = await this.prisma.post.create({
+      data: { userId, username, content, mediaUrls, videoId: videoId ?? null },
       include: {
         user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
         _count: { select: { likes: true, replies: true } },
+        video: VIDEO_SELECT,
       },
     });
+
+    // If a videoId was provided, update Video.postId to point to the real post
+    if (videoId) {
+      await this.prisma.video
+        .updateMany({ where: { id: videoId }, data: { postId: post.id } })
+        .catch(() => {/* ignore if already linked */});
+    }
+
+    return post;
   }
 
   async getPost(postId: string, currentUserId?: string) {
@@ -21,6 +40,8 @@ export class PostsService {
       include: {
         user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
         _count: { select: { likes: true, replies: true, reposts: true } },
+        quotedPost: { select: { id: true, content: true, mediaUrls: true, createdAt: true, user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } } },
+        video: VIDEO_SELECT,
       },
     });
     if (!post || post.deletedAt) throw new NotFoundException('Post not found');
@@ -49,6 +70,12 @@ export class PostsService {
     if (post.userId !== userId) throw new ForbiddenException();
 
     await this.prisma.post.update({ where: { id: postId }, data: { deletedAt: new Date() } });
+
+    // Enqueue video cleanup after 5-min delay (user might undo delete)
+    if (post.videoId) {
+      await this.videoCleanup.enqueueCleanup(post.videoId);
+    }
+
     return { success: true };
   }
 
@@ -66,17 +93,24 @@ export class PostsService {
         data: { likesCount: { decrement: 1 } },
         select: { _count: { select: { likes: true } } },
       });
-      // Delete LIKE notification when unliking
       await this.prisma.notification.deleteMany({
         where: { type: 'LIKE', actorId: userId, postId },
       });
-      return { isLiked: false, liked: false, likesCount: (await this.prisma.post.findUnique({ where: { id: postId }, select: { _count: { select: { likes: true } } } }))?._count.likes ?? 0 };
+      return {
+        isLiked: false,
+        liked: false,
+        likesCount: (
+          await this.prisma.post.findUnique({
+            where: { id: postId },
+            select: { _count: { select: { likes: true } } },
+          })
+        )?._count.likes ?? 0,
+      };
     }
 
     await this.prisma.like.create({ data: { userId, postId } });
     console.log('[toggleLike] Like created');
 
-    // Create notification - only if not already exists
     const post = await this.prisma.post.findUnique({ where: { id: postId }, select: { userId: true } });
     if (post && post.userId !== userId) {
       const existingNotif = await this.prisma.notification.findFirst({
@@ -102,13 +136,15 @@ export class PostsService {
       where: { userId_postId: { userId, postId } },
     });
     if (existing) {
-      const post = await this.prisma.post.findUnique({ where: { id: postId }, select: { _count: { select: { reposts: true } } } });
+      const post = await this.prisma.post.findUnique({
+        where: { id: postId },
+        select: { _count: { select: { reposts: true } } },
+      });
       return { isReposted: true, success: true, repostsCount: post?._count.reposts ?? 0 };
     }
 
     await this.prisma.repost.create({ data: { userId, postId } });
 
-    // Create notification - only if not already exists
     const post = await this.prisma.post.findUnique({ where: { id: postId }, select: { userId: true } });
     if (post && post.userId !== userId) {
       const existingNotif = await this.prisma.notification.findFirst({
@@ -121,17 +157,22 @@ export class PostsService {
       }
     }
 
-    const updated = await this.prisma.post.findUnique({ where: { id: postId }, select: { _count: { select: { reposts: true } } } });
+    const updated = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: { _count: { select: { reposts: true } } },
+    });
     return { isReposted: true, success: true, repostsCount: updated?._count.reposts ?? 0 };
   }
 
   async unrepost(userId: string, postId: string) {
     await this.prisma.repost.deleteMany({ where: { userId, postId } });
-    // Delete REPOST notification when un-reposting
     await this.prisma.notification.deleteMany({
       where: { type: 'REPOST', actorId: userId, postId },
     });
-    const post = await this.prisma.post.findUnique({ where: { id: postId }, select: { _count: { select: { reposts: true } } } });
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: { _count: { select: { reposts: true } } },
+    });
     return { isReposted: false, success: true, repostsCount: post?._count.reposts ?? 0 };
   }
 
@@ -144,10 +185,10 @@ export class PostsService {
       include: {
         user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
         quotedPost: { select: { id: true, content: true, mediaUrls: true, createdAt: true, user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } } },
+        video: VIDEO_SELECT,
       },
     });
 
-    // Create notification
     if (quoted.userId !== userId) {
       await this.prisma.notification.create({
         data: { type: 'QUOTE', userId: quoted.userId, actorId: userId, postId },
@@ -163,12 +204,10 @@ export class PostsService {
     if (post.userId !== userId) throw new ForbiddenException();
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      // Unpin any currently pinned post from this user
       await tx.post.updateMany({
         where: { userId, isPinned: true },
         data: { isPinned: false },
       });
-      // Pin the requested post
       return tx.post.update({
         where: { id: postId },
         data: { isPinned: true },
@@ -191,6 +230,30 @@ export class PostsService {
     return { success: true, isPinned: updated.isPinned };
   }
 
+  // ── Shared include for post lists ───────────────────────────────────────────
+  private getPostListInclude() {
+    return {
+      user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+      _count: { select: { likes: true, replies: true, reposts: true } },
+      quotedPost: { select: { id: true, content: true, mediaUrls: true, createdAt: true, user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } } },
+      video: VIDEO_SELECT,
+    };
+  }
+
+  private getRepostInclude() {
+    return {
+      user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+      post: {
+        include: {
+          user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+          _count: { select: { likes: true, replies: true, reposts: true } },
+          quotedPost: { select: { id: true, content: true, mediaUrls: true, createdAt: true, user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } } },
+          video: VIDEO_SELECT,
+        },
+      },
+    };
+  }
+
   async getFeed(userId: string, cursor?: string) {
     const take = 20;
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -202,14 +265,10 @@ export class PostsService {
       where,
       take: take + 1,
       orderBy: { createdAt: 'desc' },
-      include: {
-        user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
-        _count: { select: { likes: true, replies: true, reposts: true } },
-        quotedPost: { select: { id: true, content: true, mediaUrls: true, createdAt: true, user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } } },
-      },
+      include: this.getPostListInclude(),
     });
 
-    const postIds = posts.map(p => p.id);
+    const postIds = posts.map((p) => p.id);
     const [likes, reposts, replyCounts] = await Promise.all([
       this.prisma.like.findMany({ where: { userId, postId: { in: postIds } }, select: { postId: true } }),
       this.prisma.repost.findMany({
@@ -222,9 +281,9 @@ export class PostsService {
         _count: { parentId: true },
       }),
     ]);
-    const likedSet = new Set(likes.map(l => l.postId));
-    const repostedMap = new Map(reposts.map(r => [r.postId, r.user]));
-    const replyCountMap = new Map(replyCounts.map(r => [r.parentId!, r._count.parentId]));
+    const likedSet = new Set(likes.map((l) => l.postId));
+    const repostedMap = new Map(reposts.map((r) => [r.postId, r.user]));
+    const replyCountMap = new Map(replyCounts.map((r) => [r.parentId!, r._count.parentId]));
 
     let nextCursor: string | undefined;
     if (posts.length > take) {
@@ -233,7 +292,7 @@ export class PostsService {
     }
 
     return {
-      posts: posts.map(p => ({
+      posts: posts.map((p) => ({
         ...p,
         isLiked: likedSet.has(p.id),
         isReposted: repostedMap.has(p.id),
@@ -242,7 +301,12 @@ export class PostsService {
         commentsCount: replyCountMap.get(p.id) ?? 0,
         repostsCount: p._count.reposts,
         repostedBy: repostedMap.has(p.id)
-          ? { id: repostedMap.get(p.id)!.id, username: repostedMap.get(p.id)!.username, displayName: repostedMap.get(p.id)!.displayName, avatarUrl: repostedMap.get(p.id)!.avatarUrl }
+          ? {
+              id: repostedMap.get(p.id)!.id,
+              username: repostedMap.get(p.id)!.username,
+              displayName: repostedMap.get(p.id)!.displayName,
+              avatarUrl: repostedMap.get(p.id)!.avatarUrl,
+            }
           : undefined,
       })),
       nextCursor,
@@ -254,7 +318,7 @@ export class PostsService {
       where: { followerId: userId },
       select: { followingId: true },
     });
-    const followingIds = following.map(f => f.followingId);
+    const followingIds = following.map((f) => f.followingId);
 
     const take = 20;
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -266,14 +330,10 @@ export class PostsService {
       where,
       take: take + 1,
       orderBy: { createdAt: 'desc' },
-      include: {
-        user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
-        _count: { select: { likes: true, replies: true, reposts: true } },
-        quotedPost: { select: { id: true, content: true, mediaUrls: true, createdAt: true, user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } } },
-      },
+      include: this.getPostListInclude(),
     });
 
-    const postIds = posts.map(p => p.id);
+    const postIds = posts.map((p) => p.id);
     const [likes, reposts, replyCounts] = await Promise.all([
       this.prisma.like.findMany({ where: { userId, postId: { in: postIds } }, select: { postId: true } }),
       this.prisma.repost.findMany({
@@ -286,9 +346,9 @@ export class PostsService {
         _count: { parentId: true },
       }),
     ]);
-    const likedSet = new Set(likes.map(l => l.postId));
-    const repostedMap = new Map(reposts.map(r => [r.postId, r.user]));
-    const replyCountMap = new Map(replyCounts.map(r => [r.parentId!, r._count.parentId]));
+    const likedSet = new Set(likes.map((l) => l.postId));
+    const repostedMap = new Map(reposts.map((r) => [r.postId, r.user]));
+    const replyCountMap = new Map(replyCounts.map((r) => [r.parentId!, r._count.parentId]));
 
     let nextCursor: string | undefined;
     if (posts.length > take) {
@@ -297,7 +357,7 @@ export class PostsService {
     }
 
     return {
-      posts: posts.map(p => ({
+      posts: posts.map((p) => ({
         ...p,
         isLiked: likedSet.has(p.id),
         isReposted: repostedMap.has(p.id),
@@ -306,7 +366,12 @@ export class PostsService {
         commentsCount: replyCountMap.get(p.id) ?? 0,
         repostsCount: p._count.reposts,
         repostedBy: repostedMap.has(p.id)
-          ? { id: repostedMap.get(p.id)!.id, username: repostedMap.get(p.id)!.username, displayName: repostedMap.get(p.id)!.displayName, avatarUrl: repostedMap.get(p.id)!.avatarUrl }
+          ? {
+              id: repostedMap.get(p.id)!.id,
+              username: repostedMap.get(p.id)!.username,
+              displayName: repostedMap.get(p.id)!.displayName,
+              avatarUrl: repostedMap.get(p.id)!.avatarUrl,
+            }
           : undefined,
       })),
       nextCursor,
@@ -323,69 +388,49 @@ export class PostsService {
       ? { userId: user.id, deletedAt: null, parentId: null, createdAt: { lt: new Date(cursor) } }
       : { userId: user.id, deletedAt: null, parentId: null, createdAt: { gte: yesterday } };
 
-    // Fetch original posts AND reposts, then merge + sort
     const [posts, reposts] = await Promise.all([
       this.prisma.post.findMany({
         where,
         orderBy: { createdAt: 'desc' },
-        include: {
-          user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
-          _count: { select: { likes: true, replies: true, reposts: true } },
-          quotedPost: { select: { id: true, content: true, mediaUrls: true, createdAt: true, user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } } },
-        },
+        include: this.getPostListInclude(),
       }),
       this.prisma.repost.findMany({
         where: { userId: user.id, createdAt: { gte: yesterday }, post: { deletedAt: null, createdAt: { gte: yesterday } } },
         orderBy: { createdAt: 'desc' },
-        include: {
-          user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
-          post: {
-            include: {
-              user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
-              _count: { select: { likes: true, replies: true, reposts: true } },
-              quotedPost: { select: { id: true, content: true, mediaUrls: true, createdAt: true, user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } } },
-            },
-          },
-        },
+        include: this.getRepostInclude(),
       }),
     ]);
 
-    // Build merged list: original posts + reposts
     const merged: any[] = [
-      ...posts.map(p => ({
+      ...posts.map((p) => ({
         ...p,
         isReposted: false,
         repostedBy: undefined,
-        // For pagination: use post's createdAt
         _sortAt: p.createdAt,
       })),
-      ...reposts.map(r => ({
+      ...reposts.map((r) => ({
         ...r.post,
         isReposted: true,
         repostedBy: { id: r.user.id, username: r.user.username, displayName: r.user.displayName, avatarUrl: r.user.avatarUrl },
-        // For pagination: use Repost.createdAt
         _sortAt: r.createdAt,
       })),
     ];
 
-    // Sort by _sortAt desc
     merged.sort((a, b) => new Date(b._sortAt).getTime() - new Date(a._sortAt).getTime());
 
-    // Apply cursor-based pagination
     let sliceStart = 0;
     if (cursor) {
-      const cursorIdx = merged.findIndex(p => p._sortAt.toISOString() === cursor);
+      const cursorIdx = merged.findIndex((p) => p._sortAt.toISOString() === cursor);
       if (cursorIdx >= 0) sliceStart = cursorIdx + 1;
     }
     const page = merged.slice(sliceStart, sliceStart + take + 1);
     const hasMore = page.length > take;
     if (hasMore) page.pop();
 
-    const nextCursor = hasMore && page.length > 0
-      ? page[page.length - 1]._sortAt.toISOString()
-      : undefined;
+    const nextCursor =
+      hasMore && page.length > 0 ? page[page.length - 1]._sortAt.toISOString() : undefined;
 
-    const postIds = page.map(p => p.id);
+    const postIds = page.map((p) => p.id);
     const [likes, userReposts, replyCounts] = await Promise.all([
       this.prisma.like.findMany({ where: { postId: { in: postIds }, userId: _currentUserId ?? '' }, select: { postId: true } }),
       this.prisma.repost.findMany({
@@ -398,12 +443,12 @@ export class PostsService {
         _count: { parentId: true },
       }),
     ]);
-    const likedSet = new Set(likes.map(l => l.postId));
-    const repostedMap = new Map(userReposts.map(r => [r.postId, r.user]));
-    const replyCountMap = new Map(replyCounts.map(r => [r.parentId!, r._count.parentId]));
+    const likedSet = new Set(likes.map((l) => l.postId));
+    const repostedMap = new Map(userReposts.map((r) => [r.postId, r.user]));
+    const replyCountMap = new Map(replyCounts.map((r) => [r.parentId!, r._count.parentId]));
 
     return {
-      posts: page.map(p => ({
+      posts: page.map((p) => ({
         ...p,
         isLiked: likedSet.has(p.id),
         isReposted: repostedMap.has(p.id),
@@ -421,7 +466,6 @@ export class PostsService {
     if (!user) throw new NotFoundException('User not found');
 
     const take = 20;
-    // Always filter: only posts created within the last 24 hours
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const likeWhere = cursor
       ? { userId: user.id, createdAt: { lt: new Date(cursor) }, post: { createdAt: { gte: yesterday } } }
@@ -437,19 +481,20 @@ export class PostsService {
             user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
             _count: { select: { likes: true, replies: true, reposts: true } },
             quotedPost: { select: { id: true, content: true, mediaUrls: true, createdAt: true, user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } } },
+            video: VIDEO_SELECT,
           },
         },
       },
     });
 
     let nextCursor: string | undefined;
-    const posts = likes.map(l => l.post).filter(Boolean);
+    const posts = likes.map((l) => l.post).filter(Boolean);
     if (posts.length > take) {
       const extra = posts.pop();
       if (extra) nextCursor = extra.createdAt.toISOString();
     }
 
-    const postIds = posts.map(p => p.id);
+    const postIds = posts.map((p) => p.id);
     const [reposts, replyCounts] = await Promise.all([
       this.prisma.repost.findMany({
         where: { postId: { in: postIds }, userId: _currentUserId ?? '' },
@@ -461,11 +506,11 @@ export class PostsService {
         _count: { parentId: true },
       }),
     ]);
-    const repostedSet = new Set(reposts.map(r => r.postId));
-    const replyCountMap = new Map(replyCounts.map(r => [r.parentId!, r._count.parentId]));
+    const repostedSet = new Set(reposts.map((r) => r.postId));
+    const replyCountMap = new Map(replyCounts.map((r) => [r.parentId!, r._count.parentId]));
 
     return {
-      posts: posts.map(p => ({
+      posts: posts.map((p) => ({
         ...p,
         isLiked: true,
         isReposted: repostedSet.has(p.id),
@@ -484,8 +529,6 @@ export class PostsService {
     const take = 20;
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-    // For reposts, filter by the original post's createdAt (not the repost's createdAt)
-    // Only show reposts where the original post is within 24h
     const where = cursor
       ? { userId: user.id, post: { createdAt: { lt: new Date(cursor) } } }
       : { userId: user.id, post: { createdAt: { gte: yesterday } } };
@@ -501,19 +544,20 @@ export class PostsService {
             user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
             _count: { select: { likes: true, replies: true, reposts: true } },
             quotedPost: { select: { id: true, content: true, mediaUrls: true, createdAt: true, user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } } },
+            video: VIDEO_SELECT,
           },
         },
       },
     });
 
     let nextCursor: string | undefined;
-    const posts = reposts.map(r => r.post).filter(Boolean);
+    const posts = reposts.map((r) => r.post).filter(Boolean);
     if (posts.length > take) {
       const extra = posts.pop();
       if (extra) nextCursor = extra.createdAt.toISOString();
     }
 
-    const postIds = posts.map(p => p.id);
+    const postIds = posts.map((p) => p.id);
     const [likes, replyCounts] = await Promise.all([
       this.prisma.like.findMany({
         where: { postId: { in: postIds }, userId: _currentUserId ?? '' },
@@ -525,11 +569,11 @@ export class PostsService {
         _count: { parentId: true },
       }),
     ]);
-    const likedSet = new Set(likes.map(l => l.postId));
-    const replyCountMap = new Map(replyCounts.map(r => [r.parentId!, r._count.parentId]));
+    const likedSet = new Set(likes.map((l) => l.postId));
+    const replyCountMap = new Map(replyCounts.map((r) => [r.parentId!, r._count.parentId]));
 
     return {
-      posts: reposts.map(r => ({
+      posts: reposts.map((r) => ({
         ...r.post,
         isLiked: likedSet.has(r.post.id),
         isReposted: true,
@@ -555,6 +599,7 @@ export class PostsService {
       include: {
         user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
         _count: { select: { likes: true } },
+        video: VIDEO_SELECT,
       },
     });
 
@@ -573,10 +618,12 @@ export class PostsService {
 
     const comment = await this.prisma.post.create({
       data: { userId, username, content, parentId: postId },
-      include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
+      include: {
+        user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+        video: VIDEO_SELECT,
+      },
     });
 
-    // Create notification
     if (post.userId !== userId) {
       await this.prisma.notification.create({
         data: { type: 'COMMENT', userId: post.userId, actorId: userId, postId },
@@ -602,6 +649,7 @@ export class PostsService {
         user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
         _count: { select: { likes: true, replies: true, reposts: true } },
         quotedPost: { select: { id: true, content: true, mediaUrls: true, createdAt: true, user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } } },
+        video: VIDEO_SELECT,
       },
     });
     if (!post || post.deletedAt) throw new NotFoundException('Post not found');
@@ -612,10 +660,10 @@ export class PostsService {
       include: {
         user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
         _count: { select: { likes: true, replies: true } },
+        video: VIDEO_SELECT,
       },
     });
 
-    // Check current user's like/repost status
     let isLiked = false;
     let isReposted = false;
     if (currentUserId) {
@@ -641,7 +689,7 @@ export class PostsService {
         isReposted,
         isPinned: post.isPinned,
       },
-      replies: replies.map(r => ({
+      replies: replies.map((r) => ({
         ...r,
         likesCount: r._count.likes,
         repliesCount: r._count.replies,
@@ -655,7 +703,10 @@ export class PostsService {
 
     return this.prisma.post.create({
       data: { userId, username, content, parentId: postId },
-      include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
+      include: {
+        user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+        video: VIDEO_SELECT,
+      },
     });
   }
 }

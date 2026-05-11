@@ -1,15 +1,17 @@
 Frontend Rules:
 
+Layout:
 - MUST use MainLayout for all authenticated pages
 - MUST reuse Navbar component
 - MUST use 3-column layout:
-  - Left Sidebar
-  - Center Content
-  - Right Sidebar
+  - Left Sidebar (leaderboards, top creators)
+  - Center Content (main page content)
+  - Right Sidebar (trending, search)
 
 State Management:
-- Use React Query for server state
-- Use lightweight state (Zustand) for UI
+- React Query for server state (API calls, caching)
+- React hooks (useState, useEffect) for UI state
+- Zustand → TODO: evaluate when app state complexity grows (optional)
 
 UX:
 - Infinite scroll for feed
@@ -18,4 +20,4 @@ UX:
 
 Performance:
 - Avoid unnecessary re-renders
-- Use memoization when needed
+- Use memoization (React.memo, useMemo) when needed

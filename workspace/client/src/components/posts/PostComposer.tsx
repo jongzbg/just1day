@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { postApi, uploadApi } from '@/lib/api'
+import data from '@emoji-mart/data'
+import EmojiPicker from '@emoji-mart/react'
 
 interface PostComposerProps {
   onPostCreated?: () => void
@@ -9,23 +11,112 @@ interface PostComposerProps {
   username?: string
 }
 
+interface MediaFile {
+  url: string
+  preview: string
+  isVideo?: boolean
+  videoId?: string   // populated after video upload
+}
+
+type ProcessingState = {
+  type: 'idle' | 'compressing' | 'uploading'
+  pct: number
+  label: string
+}
+
+/** Upload progress: 0-90% from XHR, server confirms at 100% */
+
+// Upload with XHR progress tracking
+function uploadWithProgress(file: Blob, fileName: string, onProgress: (pct: number) => void): Promise<{ videoId: string; url: string; originalUrl?: string }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    const formData = new FormData()
+    formData.append('file', file, fileName)
+
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        onProgress(Math.round((e.loaded / e.total) * 90)) // cap at 90% until server confirms
+      }
+    })
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress(100)
+        resolve(JSON.parse(xhr.responseText))
+      } else {
+        let errData = {}
+        try { errData = JSON.parse(xhr.responseText || '{}') } catch {}
+        reject({ status: xhr.status, data: errData })
+      }
+    })
+
+    xhr.addEventListener('error', () => reject({ status: 0 }))
+    xhr.open('POST', 'http://localhost:3001/upload/video')
+    const token = localStorage.getItem('token')
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    xhr.send(formData)
+  })
+}
+
 export default function PostComposer({ onPostCreated, avatarUrl, username }: PostComposerProps) {
   const [content, setContent] = useState('')
-  const [mediaFiles, setMediaFiles] = useState<{ url: string; preview: string }[]>([])
+  const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([])
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [emojiOpen, setEmojiOpen] = useState(false)
+  /**
+   * Per-file processing state.
+   * - type 'compressing': shows compression progress
+   * - type 'uploading': shows upload progress (0-90%, then server confirms to 100%)
+   * - type 'idle': done
+   */
+  const [processingState, setProcessingState] = useState<Record<number, ProcessingState>>({})
+  
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const emojiRef = useRef<HTMLDivElement>(null)
 
   const avatar =
     avatarUrl || (username ? `https://api.dicebear.com/7.x/identicon/svg?seed=${username}` : '')
 
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (emojiRef.current && !emojiRef.current.contains(e.target as Node)) {
+        setEmojiOpen(false)
+      }
+    }
+    if (emojiOpen) document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [emojiOpen])
+
+  const insertEmoji = (emoji: string) => {
+    const ta = textareaRef.current
+    if (!ta) {
+      setContent((prev) => prev + emoji)
+      return
+    }
+    const start = ta.selectionStart
+    const end = ta.selectionEnd
+    const next = content.slice(0, start) + emoji + content.slice(end)
+    setContent(next)
+    setTimeout(() => {
+      ta.focus()
+      ta.setSelectionRange(start + emoji.length, start + emoji.length)
+    }, 0)
+  }
+
+  const handleEmojiSelect = (emoji: { native: string }) => {
+    insertEmoji(emoji.native)
+    setEmojiOpen(false)
+  }
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    setUploadError(null) // clear previous error
+    setUploadError(null)
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
 
-    // Prevent selecting more than 4 total
     const MAX_MEDIA = 4
     if (mediaFiles.length + files.length > MAX_MEDIA) {
       setUploadError(`โปรดเลือกรูปภาพ วิดีโอ สูงสุด ${MAX_MEDIA} รายการ`)
@@ -34,25 +125,53 @@ export default function PostComposer({ onPostCreated, avatarUrl, username }: Pos
     }
 
     setUploading(true)
-    const uploaded: { url: string; preview: string }[] = []
+    const uploaded: MediaFile[] = []
 
     try {
-      for (const file of files) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
         const preview = URL.createObjectURL(file)
-        const res = await uploadApi.uploadImage(file)
-        uploaded.push({ url: res.data.url, preview })
+        const isVideo = file.type.startsWith('video/')
+
+        if (isVideo) {
+          // Upload directly — server-side FFmpeg handles encoding
+          setProcessingState((prev) => ({ ...prev, [uploaded.length]: { type: 'uploading', pct: 0, label: 'กำลังอัปโหลด...' } }))
+          const res = await uploadWithProgress(file, file.name, (pct) => {
+            setProcessingState((prev) => ({
+              ...prev,
+              [uploaded.length]: { type: 'uploading', pct, label: `อัปโหลด ${pct}%` },
+            }))
+          })
+          setProcessingState((prev) => ({ ...prev, [uploaded.length]: { type: 'idle', pct: 100, label: '' } }))
+          uploaded.push({
+            url: res.originalUrl || res.url,
+            preview,
+            isVideo: true,
+            videoId: res.videoId,
+          })
+        } else {
+          // Image — upload directly (images are usually small enough)
+          const res = await uploadApi.uploadImage(file)
+          uploaded.push({ url: res.data.url, preview, isVideo: false })
+        }
       }
-      setMediaFiles((prev) => [...prev, ...uploaded].slice(0, 4)) // max 4 images
+      setMediaFiles((prev) => [...prev, ...uploaded].slice(0, 4))
     } catch (err: any) {
-      const status = err?.response?.status
+      const status = err?.response?.status ?? err?.status
       if (status === 413) {
-        setUploadError('ไฟล์มีขนาดใหญ่เกิน 10MB กรุณาเลือกไฟล์ที่เล็กกว่า')
+        setUploadError('ไฟล์มีขนาดใหญ่เกิน 50MB กรุณาเลือกไฟล์ที่เล็กกว่า')
+      } else if (status === 400) {
+        setUploadError('รองรับเฉพาะไฟล์วิดีโอ mp4, webm, mov')
+      } else if (status === 401) {
+        setUploadError('กรุณา login ก่อนอัปโหลด')
       } else {
-        setUploadError('อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่')
+        const msg = err?.data?.message || err?.response?.data?.message
+        setUploadError(msg || 'อัปโหลดไม่สำเร็จ กรุณาลองใหม่')
       }
-      console.error('Failed to upload image:', err)
+      console.error('Failed to upload media:', err)
     } finally {
       setUploading(false)
+      setProcessingState({})
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
@@ -72,7 +191,8 @@ export default function PostComposer({ onPostCreated, avatarUrl, username }: Pos
     setLoading(true)
     try {
       const mediaUrls = mediaFiles.map((m) => m.url)
-      await postApi.createPost(content.trim(), mediaUrls)
+      const videoId = mediaFiles.find((m) => m.isVideo)?.videoId
+      await postApi.createPost(content.trim(), mediaUrls, videoId)
       setContent('')
       mediaFiles.forEach((m) => URL.revokeObjectURL(m.preview))
       setMediaFiles([])
@@ -85,6 +205,20 @@ export default function PostComposer({ onPostCreated, avatarUrl, username }: Pos
     }
   }
 
+  // Render progress bar for a media index
+  const renderProgress = (i: number) => {
+    const state = processingState[i]
+    if (!state || state.type === 'idle') return null
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-end bg-black/40">
+        <span className="text-white text-xs font-medium mb-1">{state.label}</span>
+        <div className="w-full h-1.5 bg-white/30 rounded-full mx-2 mb-3 overflow-hidden">
+          <div className="h-full bg-primary rounded-full transition-all duration-200" style={{ width: `${state.pct}%` }} />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="p-4 border-b border-border flex gap-4">
       <img
@@ -94,6 +228,7 @@ export default function PostComposer({ onPostCreated, avatarUrl, username }: Pos
       />
       <div className="flex-1">
         <textarea
+          ref={textareaRef}
           value={content}
           onChange={(e) => setContent(e.target.value)}
           className="w-full bg-transparent border-none focus:ring-0 text-xl text-text-primary placeholder-text-muted resize-none h-24"
@@ -103,16 +238,15 @@ export default function PostComposer({ onPostCreated, avatarUrl, username }: Pos
         {/* Media preview */}
         {mediaFiles.length > 0 && (
           <>
-            {/* 3-image special layout: 1 large left + 2 stacked right */}
             {mediaFiles.length === 3 ? (
               <div className="flex gap-2 mt-2 h-64">
-                {/* Left: big image */}
                 <div className="relative flex-1 rounded-xl overflow-hidden bg-surface-base border border-border min-w-0">
                   {mediaFiles[0].url.match(/\.(mp4|webm|mov)$/i) ? (
                     <video src={mediaFiles[0].preview} controls className="w-full h-full object-cover" />
                   ) : (
                     <img src={mediaFiles[0].preview} alt="" className="w-full h-full object-cover" />
                   )}
+                  {renderProgress(0)}
                   <button
                     type="button"
                     onClick={() => removeMedia(0)}
@@ -121,7 +255,6 @@ export default function PostComposer({ onPostCreated, avatarUrl, username }: Pos
                     ✕
                   </button>
                 </div>
-                {/* Right: 2 stacked */}
                 <div className="flex-1 flex flex-col gap-2 min-w-0">
                   {[1, 2].map((i) => (
                     <div key={i} className="relative flex-1 rounded-xl overflow-hidden bg-surface-base border border-border min-h-0">
@@ -130,6 +263,7 @@ export default function PostComposer({ onPostCreated, avatarUrl, username }: Pos
                       ) : (
                         <img src={mediaFiles[i].preview} alt="" className="w-full h-full object-cover" />
                       )}
+                      {renderProgress(i)}
                       <button
                         type="button"
                         onClick={() => removeMedia(i)}
@@ -143,26 +277,27 @@ export default function PostComposer({ onPostCreated, avatarUrl, username }: Pos
               </div>
             ) : (
               <div className={`grid gap-2 mt-2 ${
-            mediaFiles.length === 1 ? 'grid-cols-1' :
-            mediaFiles.length === 2 ? 'grid-cols-2' :
-            mediaFiles.length >= 3 ? 'grid-cols-2' : ''
-          }`}>
-            {mediaFiles.map((media, i) => (
-              <div key={i} className="relative rounded-xl overflow-hidden bg-surface-base border border-border">
-                {media.url.match(/\.(mp4|webm|mov)$/i) ? (
-                  <video src={media.preview} controls className="w-full object-cover max-h-64" />
-                ) : (
-                  <img src={media.preview} alt="" className="w-full object-cover max-h-64" />
-                )}
-                <button
-                  type="button"
-                  onClick={() => removeMedia(i)}
-                  className="absolute top-1 right-1 w-6 h-6 bg-black/70 hover:bg-black rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
+                mediaFiles.length === 1 ? 'grid-cols-1' :
+                mediaFiles.length === 2 ? 'grid-cols-2' :
+                mediaFiles.length >= 3 ? 'grid-cols-2' : ''
+              }`}>
+                {mediaFiles.map((media, i) => (
+                  <div key={i} className="relative rounded-xl overflow-hidden bg-surface-base border border-border">
+                    {media.url.match(/\.(mp4|webm|mov)$/i) ? (
+                      <video src={media.preview} controls className="w-full object-cover max-h-64" />
+                    ) : (
+                      <img src={media.preview} alt="" className="w-full object-cover max-h-64" />
+                    )}
+                    {renderProgress(i)}
+                    <button
+                      type="button"
+                      onClick={() => removeMedia(i)}
+                      className="absolute top-1 right-1 w-6 h-6 bg-black/70 hover:bg-black rounded-full flex items-center justify-center text-white text-xs font-bold transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </>
@@ -199,18 +334,32 @@ export default function PostComposer({ onPostCreated, avatarUrl, username }: Pos
                 <span className="material-symbols-outlined text-xl">image</span>
               )}
             </button>
-            <button className="p-2 hover:bg-primary/10 rounded-full transition-colors" title="GIF">
-              <span className="material-symbols-outlined text-xl">gif_box</span>
-            </button>
-            <button className="p-2 hover:bg-primary/10 rounded-full transition-colors" title="Poll">
-              <span className="material-symbols-outlined text-xl">poll</span>
-            </button>
-            <button className="p-2 hover:bg-primary/10 rounded-full transition-colors" title="Emoji">
-              <span className="material-symbols-outlined text-xl">sentiment_satisfied</span>
-            </button>
-            <button className="p-2 hover:bg-primary/10 rounded-full transition-colors" title="Schedule">
-              <span className="material-symbols-outlined text-xl">calendar_month</span>
-            </button>
+
+            {/* Emoji picker */}
+            <div className="relative" ref={emojiRef}>
+              <button
+                type="button"
+                onClick={() => setEmojiOpen((prev) => !prev)}
+                className="p-2 hover:bg-primary/10 rounded-full transition-colors"
+                title="Add Emoji"
+              >
+                <span className="material-symbols-outlined text-xl">sentiment_satisfied</span>
+              </button>
+
+              {emojiOpen && (
+                <div className="absolute top-full left-0 mt-2 z-50">
+                  <EmojiPicker
+                    data={data}
+                    onEmojiSelect={handleEmojiSelect}
+                    theme="dark"
+                    previewPosition="none"
+                    skinTonePosition="preview"
+                    searchPosition="sticky"
+                    maxFrequentRows={2}
+                  />
+                </div>
+              )}
+            </div>
           </div>
           <button
             onClick={handlePost}

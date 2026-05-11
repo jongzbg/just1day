@@ -10,6 +10,7 @@ import { HashtagsModule } from './hashtags/hashtags.module';
 import { UploadModule } from './upload/upload.module';
 import { ChatModule } from './chat/chat.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { VideoModule } from './video/video.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     PostsModule,
     HashtagsModule,
     UploadModule,
+    VideoModule,
     ChatModule,
     NotificationsModule,
   ],
