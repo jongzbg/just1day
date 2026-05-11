@@ -63,6 +63,13 @@ web/public/ds-assets/
 .release_notes.md
 mini-swe-agent/
 
+# Nexus video storage (generated uploads)
+workspace/server/storage/videos/output/
+workspace/server/storage/videos/temp/
+
+# Nexus uploads
+workspace/server/uploads/
+
 # Nix
 .direnv/
 .nix-stamps/
